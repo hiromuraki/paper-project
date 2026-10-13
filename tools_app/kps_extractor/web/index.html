@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>KPS Extractor · 骨架提取</title><link rel="stylesheet" href="/static/style.css"></head>
+<body>
+<header class="app-head"><strong>KPS Extractor</strong><span class="subtitle">视频骨骼提取工具</span><button class="btn ghost" id="toggleTheme" aria-pressed="false" title="切换亮色 / 暗色模式">亮色模式</button><button class="btn ghost" id="toggleInspector" aria-expanded="true" aria-controls="inspector">信息面板</button></header>
+<div class="workspace" id="workspace">
+<aside class="browser" aria-label="视频上传">
+<div class="browser-head"><b>视频输入</b><span class="badge">本地处理</span></div>
+<form id="form">
+<label class="drop" id="videoDrop" for="file"><span class="drop-indicator" id="selectionIcon" aria-hidden="true">↑</span><strong id="selectionTitle">选择运动视频</strong><span id="selectionHelp">上传后生成 2D / 3D 骨架</span><span id="filename" class="filename" hidden></span><span id="fileMeta" class="file-meta" hidden></span><span class="file-action" id="chooseAction">选择视频</span><input id="file" type="file" accept=".mp4,.mov,.avi,.mkv,.webm,.m4v" aria-label="选择运动视频" required></label>
+<label class="field">计算设备<select id="device"><option value="auto">自动（优先 GPU）</option><option value="cpu">CPU</option><option value="cuda:0">CUDA GPU</option></select></label>
+<button class="btn generate" id="generate" type="submit" disabled>一键生成骨架</button>
+</form>
+<div class="input-help"><h3>视频要求</h3><p>MP4 / MOV / AVI / MKV / WebM / M4V<br>最大 512 MB，推荐 H.264 MP4。</p><p>建议单人视频。每帧取第一个检测人物，多人时可能切换人物。</p></div>
+<div class="browser-footer">RTMPose 提取 2D<br>MHFormer 重建 3D</div>
+</aside>
+<div class="viewer">
+<div class="package-head"><div class="package-heading"><span id="previewTitle">骨架提取预览</span><span class="package-path">视频 → 2D → 3D</span></div><span class="badge">H36M · 17 关节</span></div>
+<div class="status" aria-live="polite"><span id="state">准备就绪</span><span id="detail">选择视频即可预览，确认后开始提取</span><span id="progressCount" class="progress-count" hidden></span><progress id="busy" max="100" aria-label="当前提取阶段进度" hidden></progress><span id="elapsed" class="elapsed" role="timer" aria-live="off" hidden></span></div>
+<main class="views">
+<section class="col"><div class="col-head"><span>原视频</span><span class="badge">视频</span></div><div class="viewport"><video id="video" muted playsinline controls></video><div id="videoEmpty" class="empty">选择视频即可预览<br>无需先上传或生成骨架</div></div></section>
+<section class="col"><div class="col-head"><span>2D 骨骼</span><span class="badge">H36M · x / y</span></div><div class="viewport"><canvas id="canvas2d"></canvas><div id="empty2d" class="empty">等待 2D 提取<br>骨骼序列在此显示</div></div></section>
+<section class="col"><div class="col-head"><span>3D 骨骼</span><button class="btn ghost compact" id="reset" title="重置 3D 相机视角">重置视图</button></div><div class="viewport" id="view3d"><div id="empty3d" class="empty">等待 3D 重建<br>拖动旋转 · 滚轮缩放</div></div></section>
+</main>
+<footer class="master"><div class="timeline"><input id="timeline" aria-label="播放帧" type="range" min="0" max="0" value="0" disabled><output id="frame">0 / 0</output></div><div class="transport"><button class="btn" id="play" disabled title="空格：播放 / 暂停">播放</button><button class="btn ghost" id="prev" disabled aria-label="上一帧">−1 帧</button><button class="btn ghost" id="next" disabled aria-label="下一帧">+1 帧</button><span class="transport-spacer"></span><label class="speed-control">速度<select id="speed" aria-label="播放速度"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option></select></label></div></footer>
+</div>
+<aside class="inspector" id="inspector" aria-label="提取信息">
+<div class="inspector-head">提取信息<button class="btn ghost" id="closeInspector" aria-label="关闭信息面板">×</button></div>
+<div class="tabs" role="tablist" aria-label="提取信息类型"><button class="tab" id="tabResults" role="tab" aria-selected="true" aria-controls="resultsPanel" data-panel="resultsPanel">结果</button><button class="tab" id="tabLogs" role="tab" aria-selected="false" aria-controls="logsPanel" data-panel="logsPanel" tabindex="-1">日志</button></div>
+<div class="tab-panel" id="resultsPanel" role="tabpanel" aria-labelledby="tabResults"><div class="info-section"><h3>生成文件</h3><div id="downloads" class="downloads">生成的 NPZ 将显示在这里</div></div><div class="info-section"><h3>数据说明</h3><p>2D：x、y、置信度。<br>3D：骨盆逐帧固定到 (0, 0, 0)，网格经过原点。</p><p>ZIP 包含 kp2d.npz / kp3d.npz，可放入 kps_viewer 数据包。</p></div></div>
+<div class="tab-panel" id="logsPanel" role="tabpanel" aria-labelledby="tabLogs" hidden><div class="text-title">当前任务日志</div><pre id="logs">尚无日志</pre></div>
+<div class="inspector-help">空格播放 / 暂停，左右键逐帧。<br>3D 支持拖动旋转和滚轮缩放。<br>首次提取会下载模型权重。</div>
+</aside>
+</div>
+<script src="/static/vendor/three.min.js"></script><script src="/static/vendor/OrbitControls.js"></script><script src="/static/app.js"></script>
+</body></html>

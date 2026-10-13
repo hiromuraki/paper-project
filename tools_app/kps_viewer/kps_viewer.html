@@ -64,6 +64,10 @@ main{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;padd
 body.resizing,body.resizing *{cursor:col-resize!important;user-select:none!important}
 @media(max-width:900px){.workspace,.workspace.inspector-collapsed{grid-template-columns:var(--browser-width,200px) 6px minmax(0,1fr)}#resizeInspector{display:none}}
 @media(max-width:650px){.resize-handle{display:none}}
+
+.analysis-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.analysis-head h3{margin:0}.analysis-head .btn{padding:3px 7px;font-size:10px}
+.analysis-fields{display:flex;flex-direction:column;gap:8px}.analysis-fields label{display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--muted);font-size:11px}.analysis-fields select{max-width:100%;min-width:0}.analysis-fields #analysisModel{width:100%}.analysis-fields input{width:65px;padding:5px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--text)}
+.analysis-result{margin-top:12px;padding:10px;border:1px solid var(--line);border-radius:5px;line-height:1.7;color:var(--text);font-size:12px}.analysis-result[data-decision="1"]{border-color:#408f70}.analysis-result[data-decision="0"]{border-color:#b98141}.analysis-result.error{color:#d99d63}.analysis-result strong{display:block;font-size:15px}.analysis-help{font-size:10px;line-height:1.7;color:var(--muted);margin-top:8px}#analysisDetails{white-space:pre-line}
 </style>
     </head>
     <body>
@@ -97,7 +101,7 @@ body.resizing,body.resizing *{cursor:col-resize!important;user-select:none!impor
             <aside class="inspector" aria-label="资源包信息">
                 <div class="inspector-head">资源包信息<button class="btn ghost" id="closeInspector" aria-label="关闭信息面板">×</button></div>
                 <div class="tabs" role="tablist" aria-label="信息类型"><button class="tab" id="tabOverview" role="tab" aria-controls="overviewPanel" aria-selected="true" data-panel="overviewPanel">概况</button><button class="tab" id="tabRemark" role="tab" aria-controls="remarkPanel" aria-selected="false" data-panel="remarkPanel">Remark</button><button class="tab" id="tabMeta" role="tab" aria-controls="metaPanel" aria-selected="false" data-panel="metaPanel">Meta</button></div>
-                <div class="tab-panel" id="overviewPanel" role="tabpanel" aria-labelledby="tabOverview"><section class="info-section"><h3>加载状态</h3><div id="packageStatus" role="status">选择资源包后自动播放。</div></section><section class="info-section"><h3>2D / 视频</h3><div class="info" id="info2d">未加载</div></section><section class="info-section"><h3>3D 骨骼</h3><div class="info" id="info3d">未加载</div></section><div class="counters"><span>2D 帧 <b id="count2d">–</b></span><span>3D 帧 <b id="count3d">–</b></span></div></div>
+                <div class="tab-panel" id="overviewPanel" role="tabpanel" aria-labelledby="tabOverview"><section class="info-section"><div class="analysis-head"><h3>模型分析</h3><button class="btn ghost" id="refreshModels">刷新模型</button></div><div class="analysis-fields"><select id="analysisModel" aria-label="判别模型"><option value="">关闭分析</option></select><label>分析方式<select id="analysisMode"><option value="full">整段分析</option><option value="window">滑动窗口 · 64 帧</option></select></label><label>正类阈值<input id="analysisThreshold" type="number" min="0" max="1" step="0.05" value="0.5" /></label></div><div class="analysis-result" id="analysisResult" role="status"><strong id="analysisDecision">未选择模型</strong><div id="analysisDetails"></div></div><div class="analysis-help" id="analysisHelp">模型按训练标签输出正类(1) / 负类(0)，概率不是经过校准的可信度。</div></section><section class="info-section"><h3>加载状态</h3><div id="packageStatus" role="status">选择资源包后自动播放。</div></section><section class="info-section"><h3>2D / 视频</h3><div class="info" id="info2d">未加载</div></section><section class="info-section"><h3>3D 骨骼</h3><div class="info" id="info3d">未加载</div></section><div class="counters"><span>2D 帧 <b id="count2d">–</b></span><span>3D 帧 <b id="count3d">–</b></span></div></div>
                 <div class="tab-panel" id="remarkPanel" role="tabpanel" aria-labelledby="tabRemark" hidden><div class="text-title" id="remarkName">remark.txt · 原文</div><pre id="remarkText">未选择资源包</pre></div>
                 <div class="tab-panel" id="metaPanel" role="tabpanel" aria-labelledby="tabMeta" hidden><div class="text-title">meta.json · 原文</div><pre id="metaText">未选择资源包</pre></div>
                 <div class="inspector-help">空格 播放 / 暂停<br />← / → 逐帧移动 · 帧编号从 0 开始</div>
@@ -218,6 +222,10 @@ body.resizing,body.resizing *{cursor:col-resize!important;user-select:none!impor
 
             function seek(t) {
                 setPlaying(false);
+                if (analysisSession && el("analysisMode").value === "window") {
+                    ++analysisGeneration; lastAnalysisFrame = -1;
+                    analysisMessage("正在分析新位置…");
+                }
                 state.time = clamp(t, 0, totalDuration());
                 const video = state.video?.el;
                 if (video && video.readyState >= 1) video.currentTime = state.time;
@@ -765,6 +773,7 @@ body.resizing,body.resizing *{cursor:col-resize!important;user-select:none!impor
                 } catch (error) { if (version === listVersion && source === datasetSource) el("packageStatus").textContent = `目录扫描失败：${error.message}`; }
             }
             function clearPackage() {
+                stopAnalysis();
                 setPlaying(false); state.time = 0; state.scrubbing = false;
                 const video = el("video"); video.onloadedmetadata = null; video.onerror = null;
                 video.pause(); video.removeAttribute("src"); video.load(); video.classList.remove("loaded");
@@ -805,6 +814,7 @@ body.resizing,body.resizing *{cursor:col-resize!important;user-select:none!impor
                     if (data.video) setVideo({name:"video.mp4"}, data.video);
                     updateInfo(); updateGeom(); emptyState(); renderAll();
                     setPlaying(Boolean(state.s2d || state.s3d || state.video));
+                    startAnalysis();
                 } catch (error) {
                     if (version !== loadVersion) return;
                     el("packageStatus").textContent = `加载失败：${error.message}`; el("packageStatus").classList.add("error");
@@ -812,6 +822,100 @@ body.resizing,body.resizing *{cursor:col-resize!important;user-select:none!impor
                 }
             }
             function stepFrame(direction) {setPlaying(false); seek((Math.round(state.time * primaryFps()) + direction) / primaryFps());}
+            let analysisVersion = 0, analysisSession = null, analysisStream = null;
+            let cursorSequence = 0, cursorBusy = false, lastAnalysisFrame = -1, analysisGeneration = 0, displayedSequence = -1;
+            function analysisMessage(title, details = "", error = false) {
+                el("analysisDecision").textContent = title; el("analysisDetails").textContent = details;
+                el("analysisResult").classList.toggle("error", error);
+                delete el("analysisResult").dataset.decision;
+                delete el("analysisResult").dataset.frame; delete el("analysisResult").dataset.padding;
+            }
+            function updateAnalysisHelp() {
+                el("analysisHelp").textContent = el("analysisMode").value === "window"
+                    ? "截至当前帧取最近 64 帧；不足时重复当前帧补在末尾，不使用未来帧。短窗口与完整 trial 训练范围不同，结果供探索。正类含义由训练标签决定。"
+                    : "一次分析当前资源包的完整序列，按模型配置重采样。正类(1) / 负类(0) 的含义由训练标签决定，输出概率不是经过校准的可信度。";
+            }
+            function stopAnalysis() {
+                ++analysisVersion;
+                analysisStream?.close(); analysisStream = null;
+                const old = analysisSession; analysisSession = null;
+                lastAnalysisFrame = -1; cursorSequence = 0; cursorBusy = false; analysisGeneration = 0; displayedSequence = -1;
+                if (old) fetch(`/api/analysis/${old}`, {method:"DELETE", keepalive:true}).catch(() => {});
+                analysisMessage(el("analysisModel").value ? "等待资源包" : "未选择模型");
+            }
+            async function refreshModels() {
+                try {
+                    const response = await fetch("/api/models"); if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    const data = await response.json(), select = el("analysisModel"), old = select.value;
+                    select.replaceChildren(); const off = document.createElement("option"); off.value = ""; off.textContent = "关闭分析"; select.append(off);
+                    for (const model of data.models) {const option = document.createElement("option"); option.value = option.textContent = model.name; select.append(option);}
+                    select.value = data.models.some(item => item.name === old) ? old : "";
+                    if (old && select.value !== old) stopAnalysis();
+                    else if (old) startAnalysis();
+                    if (!data.models.length) analysisMessage("暂无模型", "请将本项目训练的 .pt 文件放入 out-models 后刷新。");
+                } catch (error) {analysisMessage("模型扫描失败", error.message, true);}
+            }
+            async function startAnalysis() {
+                stopAnalysis(); updateAnalysisHelp();
+                if (!el("analysisModel").value || !selectedPath || (!state.s2d && !state.s3d)) return;
+                const threshold = Number(el("analysisThreshold").value);
+                if (el("analysisThreshold").value === "" || !Number.isFinite(threshold) || threshold < 0 || threshold > 1) {
+                    analysisMessage("阈值无效", "请输入 0–1 的正类概率阈值。", true); return;
+                }
+                const version = analysisVersion;
+                analysisMessage("正在分析…", "加载模型后通过 SSE 接收结果。");
+                try {
+                    const response = await fetch("/api/analysis", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
+                        model:el("analysisModel").value, source:datasetSource, path:selectedPath,
+                        mode:el("analysisMode").value, threshold, time:state.time})});
+                    const data = await response.json(); if (!response.ok) throw new Error(data.detail || `HTTP ${response.status}`);
+                    if (version !== analysisVersion) {fetch(`/api/analysis/${data.id}`, {method:"DELETE"}).catch(() => {}); return;}
+                    analysisSession = data.id;
+                    const stream = new EventSource(data.events); analysisStream = stream;
+                    stream.addEventListener("status", event => {if (version === analysisVersion) analysisMessage("正在分析…", JSON.parse(event.data).message);});
+                    stream.addEventListener("result", event => {
+                        if (version !== analysisVersion) return;
+                        const result = JSON.parse(event.data);
+                        if (result.mode === "window" && (result.generation !== analysisGeneration || result.sequence <= displayedSequence)) return;
+                        displayedSequence = result.sequence;
+                        analysisMessage(result.decision ? "正类 (1)" : "负类 (0)",
+                            `正类概率 ${(result.probability * 100).toFixed(1)}% · 阈值 ${result.threshold.toFixed(2)}\n` +
+                            (result.mode === "full" ? `整段 ${result.observed_frames} 帧 → 模型输入 ${result.model_input_frames} 帧` :
+                             `帧 ${result.start_frame}–${result.end_frame} · 有效 ${result.observed_frames} / 64\n末尾补齐 ${result.padding_frames} 帧 · ${result.fps} FPS`) +
+                            `\n${result.elapsed_ms.toFixed(1)} ms · ${result.has2d && result.has3d ? "2D + 3D" : result.has2d ? "仅 2D" : "仅 3D"}`);
+                        el("analysisResult").dataset.decision = result.decision;
+                        el("analysisResult").dataset.frame = result.current_frame;
+                        el("analysisResult").dataset.padding = result.padding_frames;
+                    });
+                    stream.addEventListener("analysis_error", event => {
+                        if (version !== analysisVersion) return;
+                        const message = JSON.parse(event.data).message; stopAnalysis(); analysisMessage("分析失败", message, true);
+                    });
+                    stream.onerror = () => {
+                        if (version !== analysisVersion) return;
+                        stopAnalysis(); analysisMessage("分析连接中断", "重新选择模型或分析方式以重试。", true);
+                    };
+                } catch (error) {if (version === analysisVersion) analysisMessage("分析失败", String(error.message || error), true);}
+            }
+            async function sendAnalysisCursor() {
+                if (!analysisSession || el("analysisMode").value !== "window" || cursorBusy) return;
+                const frame = frameIndex(state.s3d || state.s2d, state.time);
+                if (frame === lastAnalysisFrame) return;
+                const session = analysisSession, version = analysisVersion;
+                if (lastAnalysisFrame >= 0 && frame < lastAnalysisFrame) ++analysisGeneration;
+                cursorBusy = true; lastAnalysisFrame = frame; const sequence = ++cursorSequence;
+                try {
+                    const response = await fetch(`/api/analysis/${session}/cursor`, {method:"POST",headers:{"Content-Type":"application/json"},
+                        body:JSON.stringify({time:state.time, sequence, generation:analysisGeneration})});
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                } catch (error) {if (version === analysisVersion) {stopAnalysis(); analysisMessage("分析更新失败", error.message, true);}}
+                finally {if (version === analysisVersion) cursorBusy = false;}
+            }
+            for (const id of ["analysisModel", "analysisMode", "analysisThreshold"]) el(id).onchange = startAnalysis;
+            el("refreshModels").onclick = refreshModels;
+            setInterval(sendAnalysisCursor, 250);
+            window.addEventListener("pagehide", stopAnalysis);
+
             const sidebarRatios = {browser: null, inspector: null};
             try {
                 const saved = JSON.parse(localStorage.getItem("kps-viewer-widths") || "{}");
@@ -1157,6 +1261,7 @@ body.resizing,body.resizing *{cursor:col-resize!important;user-select:none!impor
             emptyState();
             updateReadouts();
             discoverSources();
+            refreshModels(); updateAnalysisHelp();
             requestAnimationFrame(tick);
         </script>
     </body>

@@ -230,6 +230,11 @@ def package(path: str, source: str = "dataset") -> dict:
     return result
 
 
+# Inference reads original NPZ coordinates, independently of display transforms.
+from inference_service import install_analysis
+install_analysis(app, Path(__file__).resolve().parents[2] / "out-models", package_folder, dataset_path, pick_array, pick_fps)
+
+
 @app.get("/api/video")
 def package_video(path: str, source: str = "dataset") -> FileResponse:
     package_folder(path, source)

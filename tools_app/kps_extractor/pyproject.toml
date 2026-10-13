@@ -1,0 +1,55 @@
+[project]
+name = "kp3d-extractor"
+version = "0.1.0"
+description = "Local video to RTMPose 2D / MHFormer 3D skeleton extractor"
+readme = "README.md"
+requires-python = ">=3.10,<3.11"
+dependencies = [
+    # 核心大包
+    "torch==2.0.0+cu118",
+    "torchvision==0.15.1+cu118",
+    "torchaudio==2.0.1+cu118",
+    # OpenMMLab 体系
+    "mmcv==2.1.0",
+    "mmdet==3.2.0",
+    "mmpose==1.3.2",
+    # 其他
+    "addict==2.4.0",
+    "einops==0.8.1",
+    "filterpy==1.4.5",
+    "matplotlib==3.7.5",
+    "numba==0.58.1",
+    "numpy==1.24.4",
+    "opencv-python==4.10.0.84",
+    "pandas==2.0.3",
+    "scikit-image==0.21.0",
+    "scipy==1.10.1",
+    "timm==0.6.11",
+    "tqdm==4.65.2",
+    "yacs==0.1.8",
+    "easydict>=1.13",
+    "fastapi==0.115.12",
+    "uvicorn==0.34.2",
+    "python-multipart==0.0.20",
+]
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu118" }
+torchvision = { index = "pytorch-cu118" }
+torchaudio = { index = "pytorch-cu118" }
+
+mmcv = [
+    { url = "https://download.openmmlab.com/mmcv/dist/cu118/torch2.0.0/mmcv-2.1.0-cp310-cp310-win_amd64.whl", marker = "sys_platform == 'win32'" },
+    { url = "https://download.openmmlab.com/mmcv/dist/cu118/torch2.0.0/mmcv-2.1.0-cp310-cp310-manylinux1_x86_64.whl", marker = "sys_platform == 'linux'" },
+]
+
+[tool.uv]
+environments = ["sys_platform == 'win32'", "sys_platform == 'linux'"]
+
+[[tool.uv.index]]
+name = "pytorch-cu118"
+url = "https://download.pytorch.org/whl/cu118"
+explicit = true
+
+[tool.uv.extra-build-dependencies]
+chumpy = ["pip"]

@@ -8,5 +8,14 @@ data/
 data2d/
 runs/
 tmp/
-dataset-raw/
 dataset/
+dataset-*/
+out-models/
+.videos/
+
+# 模型权重（体积大，本地下载即可）
+*.pth
+.model-cache/
+
+# 第三方仓库 MHFormer 的 README 配图，约 24MB
+tools_app/kps_extractor/src/MHFormer/figure/
