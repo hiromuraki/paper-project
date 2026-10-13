@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+.venv/
+.uv-cache/
+*.egg-info/
+data/
+data2d/
+runs/
+tmp/
+dataset-raw/
+dataset/

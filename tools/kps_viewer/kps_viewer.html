@@ -1,0 +1,1139 @@
+<!doctype html>
+<html lang="zh-CN">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>骨骼动画查看器</title>
+        <!-- 本地内置（r128），不依赖 CDN：外网不通时页面会静默白屏，这里从 tools/kps_viewer/vendor/ 加载 -->
+        <script src="vendor/three.min.js"></script>
+        <script src="vendor/OrbitControls.js"></script>
+        <style>
+:root{color-scheme:dark;--bg:#11151c;--panel:#191f28;--line:#303844;--muted:#929fac;--primary:#478bec;--text:#e0e7ef}
+*{box-sizing:border-box}body{margin:0;height:100vh;overflow:hidden;background:var(--bg);color:var(--text);font:13px "Segoe UI",system-ui,sans-serif;display:flex;flex-direction:column}
+button,input,select{font:inherit}button{cursor:pointer}button:disabled{opacity:.35;cursor:default}:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.btn{padding:7px 12px;border:1px solid transparent;border-radius:5px;background:var(--primary);color:white;white-space:nowrap}.btn.ghost{background:transparent;color:var(--text);border-color:var(--line)}.btn:hover{filter:brightness(1.15)}
+.app-head{height:40px;flex-shrink:0;display:flex;align-items:center;gap:10px;padding:0 12px;border-bottom:1px solid var(--line);background:var(--panel)}.app-head strong{font-size:15px;letter-spacing:.4px}.app-head .subtitle{color:var(--muted);flex:1;font-size:12px}
+.workspace{flex:1;min-height:0;display:grid;grid-template-columns:210px minmax(0,1fr) 250px}.workspace.inspector-collapsed{grid-template-columns:210px minmax(0,1fr)}.workspace.inspector-collapsed .inspector{display:none}
+.browser{min-height:0;display:flex;flex-direction:column;border-right:1px solid var(--line);background:#161c24;padding:10px 8px;gap:8px}.browser-head{display:flex;align-items:center;justify-content:space-between;padding:0 6px}.browser-head b{font-size:12px}.browser-head .btn{padding:4px 8px;font-size:11px}
+#packageSearch{width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--text)}#packageCount{padding:0 6px;font-size:11px;color:var(--muted)}#packageList{overflow:auto;min-height:0;flex:1}.tree-group>summary{padding:6px 7px;color:#b7c4d1;cursor:pointer;user-select:none}.tree-group>summary span{float:right;color:var(--muted);font-size:11px}.tree-children{margin-left:13px;padding-left:8px;border-left:1px solid var(--line)}
+.package-item{display:flex;align-items:center;gap:7px;width:100%;text-align:left;background:transparent;color:#abb9c7;border:1px solid transparent;border-radius:4px;padding:6px 6px;margin:1px 0;min-width:0}.package-item::before{content:'▣';color:#64778b}.package-item span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.package-item:hover{background:#222c39}.package-item[aria-current="true"]{background:#213752;color:#cfe5ff;border-color:#395f89}.package-item[aria-current="true"]::before{color:#8bbdff}
+.viewer{min-width:0;min-height:0;display:flex;flex-direction:column}.package-head{display:flex;align-items:center;gap:10px;padding:8px 10px;min-height:44px}.package-heading{flex:1;min-width:0;display:flex;align-items:center;gap:12px}#packageTitle{max-width:55%;flex-shrink:0;font-size:14px;font-weight:600;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#packagePath{font-size:11px;color:var(--muted);display:block;margin-top:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.package-nav{display:flex;gap:6px}.package-nav .btn{padding:5px 9px;font-size:12px}
+main{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;padding:0 10px 8px;flex:1;min-height:0}.col{min-width:0;min-height:0;display:flex;flex-direction:column;border:1px solid var(--line);border-radius:5px;background:var(--panel)}.col-head{position:relative;height:34px;flex-shrink:0;padding:0 10px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line)}.col-head>span:first-child{flex:1;font-weight:600}.badge{font-size:10px;color:#9cbce1;border:1px solid #36516f;border-radius:4px;padding:2px 5px;white-space:nowrap}.badge.warn{color:#efbf75;border-color:#705635}.settings{position:relative}.settings>summary{list-style:none;cursor:pointer;padding:5px;color:var(--muted);font-size:12px}.settings[open]>summary{color:var(--text)}.settings-panel{position:absolute;right:0;top:32px;width:230px;padding:14px;display:flex;flex-direction:column;gap:13px;background:#202934;border:1px solid #455469;border-radius:6px;z-index:10;box-shadow:0 12px 36px #0008}.toggle{display:flex;align-items:center;gap:8px;color:#c3cfdb;font-size:12px}.toggle input{accent-color:var(--primary)}select{padding:5px;border:1px solid #455469;border-radius:4px;background:var(--bg);color:var(--text)}.toggle select{margin-left:auto}
+.stage{position:relative;flex:1;min-height:120px;overflow:hidden;background:#0b1220}#video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:black;display:none}#video.loaded{display:block}#s2dCanvas{position:absolute;pointer-events:none}#s3dHost{position:absolute;inset:0}#s3dHost canvas{display:block}.hint{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:20px;color:#697a8d;font-size:12px;line-height:1.8;pointer-events:none}.hint.hidden{display:none}
+.readout{position:absolute;top:12px;right:12px;z-index:5;display:none;min-width:200px;padding:10px 12px;background:#182330ee;border:1px solid #455469;border-radius:5px;font-size:11px;line-height:1.8;color:#bac8d8}.readout.visible{display:block}.readout b{color:#f3c77b}.readout .close{float:right;cursor:pointer;padding:0 5px}.mono{font-variant-numeric:tabular-nums}
+.master{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:12px;padding:8px 10px;border-top:1px solid var(--line);background:var(--panel);flex-shrink:0}.timeline{order:2;display:flex;gap:10px;align-items:center;margin:0;min-width:0}.time{font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--muted)}#progress{flex:1;min-width:30px}.transport{order:1;display:flex;align-items:center;gap:6px}.transport-spacer{flex:1}#playBtn{min-width:74px}.transport .btn.ghost{padding:7px 10px}.frame-field{display:flex;gap:6px;align-items:center;color:var(--muted);font-size:11px}#frameInput{width:65px;padding:6px 5px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--text)}#speed{width:64px}.speed-control{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--muted)}#speedLabel{width:32px;color:var(--text)}.counters{display:flex;gap:16px;color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums;margin-top:16px}.counters b{color:var(--text)}input[type=range]{accent-color:var(--primary);cursor:pointer;height:4px}
+.inspector{min-height:0;min-width:0;display:flex;flex-direction:column;border-left:1px solid var(--line);background:#161c24}.inspector-head{padding:12px 12px 10px;display:flex;align-items:center;justify-content:space-between;font-weight:600}.inspector-head .btn{padding:0 6px;border:0;color:var(--muted)}.tabs{display:flex;padding:0 12px;border-bottom:1px solid var(--line);gap:6px}.tab{background:transparent;border:0;border-bottom:2px solid transparent;padding:10px 7px;color:var(--muted);font-size:12px}.tab[aria-selected=true]{color:#bbd7ff;border-bottom-color:var(--primary)}.tab-panel{overflow:auto;min-height:0;padding:12px;flex:1}.tab-panel[hidden]{display:none}.info-section{margin-bottom:16px}.info-section h3{margin:0 0 10px;font-size:11px;letter-spacing:.5px;color:var(--muted);font-weight:500}.info{font-size:12px;line-height:1.9;overflow-wrap:anywhere;color:#aab8c8}.info b{color:#d3dfec;font-weight:500}.warn,#packageStatus.error{color:#e4b873}#packageStatus{font-size:12px;line-height:1.8;white-space:pre-wrap;color:#aab8c8;overflow-wrap:anywhere}.text-title{font-size:11px;color:var(--muted);margin-bottom:16px}pre{margin:0;font:11px/1.8 Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;color:#c8d4e0}.inspector-help{padding:14px 16px;border-top:1px solid var(--line);font-size:11px;color:var(--muted);line-height:1.8}
+@media(max-width:1150px){.workspace{grid-template-columns:200px minmax(0,1fr) 230px}.workspace.inspector-collapsed{grid-template-columns:200px minmax(0,1fr)}main{padding:0 8px 8px;gap:8px}.package-head{padding:8px}.master{padding:8px}.col-head{padding:0 9px}}
+@media(max-width:900px){.workspace{position:relative;grid-template-columns:200px minmax(0,1fr)}.workspace.inspector-collapsed{grid-template-columns:200px minmax(0,1fr)}.inspector{position:absolute;right:0;top:0;bottom:0;width:286px;z-index:20;box-shadow:-12px 0 40px #0008}.transport{flex-wrap:wrap}}
+@media(max-width:650px){body{height:auto;min-height:100vh;overflow:auto}.workspace,.workspace.inspector-collapsed{display:flex;flex-direction:column}.browser{max-height:260px;border-bottom:1px solid var(--line)}#packageList{min-height:80px}.viewer{min-height:700px}.app-head .subtitle{display:none}.app-head strong{flex:1}main{grid-template-columns:1fr}.stage{min-height:240px}.inspector{position:fixed;top:40px}.package-nav .btn{padding:6px}.package-head{gap:6px}}
+
+:root[data-theme="light"]{color-scheme:light;--bg:#f3f5f8;--panel:#ffffff;--line:#d5dde7;--muted:#637387;--primary:#286acc;--text:#243447}
+[data-theme="light"] .browser,[data-theme="light"] .inspector{background:#f8fafc}
+[data-theme="light"] .tree-group>summary,[data-theme="light"] .package-item{color:#42566e}
+[data-theme="light"] .package-item:hover{background:#e9eff7}
+[data-theme="light"] .package-item[aria-current="true"]{background:#e2edff;color:#194f97;border-color:#a9c6ef}
+[data-theme="light"] .package-item[aria-current="true"]::before{color:#286acc}
+[data-theme="light"] .badge{color:#285c98;border-color:#adc5e0;background:#edf4fc}
+[data-theme="light"] .badge.warn{color:#8c5a13;border-color:#dec38c;background:#fff6e5}
+[data-theme="light"] .settings-panel{background:#fff;border-color:#cad5e3;box-shadow:0 12px 36px #23354b20}
+[data-theme="light"] .toggle,[data-theme="light"] .info,[data-theme="light"] #packageStatus,[data-theme="light"] pre{color:#42566e}
+[data-theme="light"] .info b{color:#243447}
+[data-theme="light"] select{border-color:var(--line)}
+[data-theme="light"] .stage{background:#edf2f8}
+[data-theme="light"] .hint{color:#6a7e95}
+[data-theme="light"] .readout{background:#fffffff2;border-color:#b9c9dc;color:#42566e}
+[data-theme="light"] .readout b,[data-theme="light"] .warn,[data-theme="light"] #packageStatus.error{color:#92600f}
+[data-theme="light"] .tab[aria-selected=true]{color:#245fae}
+#progress{appearance:none;-webkit-appearance:none;height:24px;margin:0;padding:0;background:transparent;touch-action:none;cursor:pointer}
+#progress::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:var(--line)}
+#progress::-webkit-slider-thumb{appearance:none;-webkit-appearance:none;width:14px;height:14px;margin-top:-4px;border-radius:50%;background:var(--primary);border:2px solid var(--panel)}
+#progress::-moz-range-track{height:6px;border-radius:3px;background:var(--line)}
+#progress::-moz-range-thumb{width:10px;height:10px;border-radius:50%;background:var(--primary);border:2px solid var(--panel)}
+
+@media(max-width:1250px){.master{grid-template-columns:minmax(0,1fr);gap:4px}.timeline{order:1}.transport{order:2}.transport-spacer{flex:1}}
+@media(max-width:650px){.package-heading{display:block}#packageTitle{max-width:100%}#packagePath{margin-top:3px}.package-head{min-height:48px}}
+
+.workspace{grid-template-columns:var(--browser-width,210px) 6px minmax(0,1fr) 6px var(--inspector-width,250px)}
+.workspace.inspector-collapsed{grid-template-columns:var(--browser-width,210px) 6px minmax(0,1fr)}
+.workspace.inspector-collapsed #resizeInspector{display:none}
+.browser,.inspector{border-left:0;border-right:0;min-width:0}
+.resize-handle{position:relative;background:var(--bg);cursor:col-resize;touch-action:none;outline-offset:-1px}
+.resize-handle::after{content:"";position:absolute;width:2px;height:32px;left:2px;top:calc(50% - 16px);border-radius:2px;background:var(--muted);opacity:.5}
+.resize-handle:hover,.resize-handle:focus-visible,.resize-handle.dragging{background:var(--primary)}
+.resize-handle:hover::after,.resize-handle.dragging::after{background:white;opacity:1}
+body.resizing,body.resizing *{cursor:col-resize!important;user-select:none!important}
+@media(max-width:900px){.workspace,.workspace.inspector-collapsed{grid-template-columns:var(--browser-width,200px) 6px minmax(0,1fr)}#resizeInspector{display:none}}
+@media(max-width:650px){.resize-handle{display:none}}
+</style>
+    </head>
+    <body>
+        <header class="app-head"><strong>KPS Viewer</strong><span class="subtitle">骨骼序列检查工具</span><button class="btn ghost" id="toggleTheme" aria-pressed="false" title="切换亮色 / 暗色模式">亮色模式</button><button class="btn ghost" id="toggleInspector" aria-expanded="true">信息面板</button></header>
+        <div class="workspace" id="workspace">
+            <aside class="browser" aria-label="资源目录">
+                <div class="browser-head"><b>资源目录</b><button class="btn ghost" id="refreshPackages">刷新</button></div>
+                <label class="toggle">数据源<select id="datasetSource" aria-label="数据源"><option value="dataset-mock">dataset-mock</option><option value="dataset">dataset</option></select></label>
+                <input id="packageSearch" type="search" placeholder="搜索资源包…" aria-label="搜索数据包" />
+                <div id="packageCount"></div><div id="packageList"></div>
+            </aside>
+            <div class="resize-handle" id="resizeBrowser" role="separator" aria-label="调整资源目录宽度" aria-orientation="vertical" tabindex="0" title="拖动调整目录宽度；双击恢复默认"></div>
+            <div class="viewer">
+                <div class="package-head"><div class="package-heading"><span id="packageTitle">选择资源包</span><span id="packagePath">dataset / 分类 / 资源包</span></div><div class="package-nav"><button class="btn ghost" id="prevPackage" title="当前搜索结果中的上一包">上一包</button><button class="btn ghost" id="nextPackage" title="当前搜索结果中的下一包">下一包</button></div></div>
+                <main>
+                    <section class="col">
+                        <div class="col-head"><span>2D / 视频</span><span class="badge" id="badge2d">未加载</span><details class="settings"><summary>设置</summary><div class="settings-panel"><label class="toggle">坐标模式<select id="coordMode"><option value="auto">自动</option><option value="pixel">像素</option><option value="normalized">归一化 0–1</option></select></label><label class="toggle"><input type="checkbox" id="overlayFlipY" />Y 轴翻转</label></div></details></div>
+                        <div class="stage" id="s2dStage" title="有视频时叠加骨骼，无视频时独立显示"><video id="video" playsinline muted></video><canvas id="s2dCanvas"></canvas><div class="hint" id="hint2d">从目录树选择资源包<br />2D 骨骼与视频在此同步显示</div></div>
+                    </section>
+                    <section class="col">
+                        <div class="col-head"><span>3D 骨骼</span><span class="badge" id="badge3d">未加载</span><details class="settings"><summary>设置</summary><div class="settings-panel"><label class="toggle"><input type="checkbox" id="autoUpright" checked />自动摆正</label><label class="toggle"><input type="checkbox" id="rootCenter" checked />盆骨固定到原点</label><label class="toggle"><input type="checkbox" id="flip3d" />上下颠倒</label><label class="toggle"><input type="checkbox" id="gridVisible" checked />显示网格</label><button class="btn ghost" id="resetView">重置视图</button></div></details></div>
+                        <div class="stage" id="s3dStage" title="拖动旋转 · 滚轮缩放 · 点击关节查看坐标"><div id="s3dHost"></div><div class="hint" id="hint3d">从目录树选择资源包<br />3D 骨骼在此显示</div><div class="readout" id="jointReadout"></div></div>
+                    </section>
+                </main>
+                <footer class="master">
+                    <div class="timeline"><input type="range" id="progress" min="0" max="1000" value="0" step="1" aria-label="播放进度" /><span class="time" id="timeLabel">00:00.00 / 00:00.00</span></div>
+                    <div class="transport"><button class="btn" id="playBtn" title="空格：播放/暂停">播放</button><button class="btn ghost" id="prevFrame" title="← 上一帧">−1 帧</button><button class="btn ghost" id="nextFrame" title="→ 下一帧">+1 帧</button><label class="frame-field">跳至帧 <input id="frameInput" type="number" min="0" value="0" aria-label="跳转帧" /></label><span class="transport-spacer"></span><label class="speed-control">速度 <input type="range" id="speed" min="10" max="400" value="100" step="5" aria-label="播放速度" /><span id="speedLabel">1.0×</span></label></div>
+                </footer>
+            </div>
+            <div class="resize-handle" id="resizeInspector" role="separator" aria-label="调整信息面板宽度" aria-orientation="vertical" tabindex="0" title="拖动调整信息宽度；双击恢复默认"></div>
+            <aside class="inspector" aria-label="资源包信息">
+                <div class="inspector-head">资源包信息<button class="btn ghost" id="closeInspector" aria-label="关闭信息面板">×</button></div>
+                <div class="tabs" role="tablist" aria-label="信息类型"><button class="tab" id="tabOverview" role="tab" aria-controls="overviewPanel" aria-selected="true" data-panel="overviewPanel">概况</button><button class="tab" id="tabRemark" role="tab" aria-controls="remarkPanel" aria-selected="false" data-panel="remarkPanel">Remark</button><button class="tab" id="tabMeta" role="tab" aria-controls="metaPanel" aria-selected="false" data-panel="metaPanel">Meta</button></div>
+                <div class="tab-panel" id="overviewPanel" role="tabpanel" aria-labelledby="tabOverview"><section class="info-section"><h3>加载状态</h3><div id="packageStatus" role="status">选择资源包后自动播放。</div></section><section class="info-section"><h3>2D / 视频</h3><div class="info" id="info2d">未加载</div></section><section class="info-section"><h3>3D 骨骼</h3><div class="info" id="info3d">未加载</div></section><div class="counters"><span>2D 帧 <b id="count2d">–</b></span><span>3D 帧 <b id="count3d">–</b></span></div></div>
+                <div class="tab-panel" id="remarkPanel" role="tabpanel" aria-labelledby="tabRemark" hidden><div class="text-title" id="remarkName">remark.txt · 原文</div><pre id="remarkText">未选择资源包</pre></div>
+                <div class="tab-panel" id="metaPanel" role="tabpanel" aria-labelledby="tabMeta" hidden><div class="text-title">meta.json · 原文</div><pre id="metaText">未选择资源包</pre></div>
+                <div class="inspector-help">空格 播放 / 暂停<br />← / → 逐帧移动 · 帧编号从 0 开始</div>
+            </aside>
+        </div>
+
+        <script>
+            if (!window.THREE || !window.THREE.OrbitControls) {
+                document.body.insertAdjacentHTML(
+                    "beforeend",
+                    '<div style="position:fixed;inset:0;z-index:999;display:flex;align-items:center;' +
+                        'justify-content:center;background:#0f172a;color:#fca5a5;font-size:1rem;' +
+                        'line-height:1.8;text-align:center;padding:40px">' +
+                        "Three.js 加载失败：缺少 tools/kps_viewer/vendor/three.min.js 或 tools/kps_viewer/vendor/OrbitControls.js，" +
+                        "<br>或后端未挂载 /vendor/ 路由。</div>",
+                );
+                throw new Error("three.js 未加载");
+            }
+
+            const el = (id) => document.getElementById(id);
+            const escapeHtml = value => String(value).replace(/[&<>"']/g, c => ({"&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"}[c]));
+            const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
+            const fmtTime = (t) => {
+                if (!isFinite(t) || t < 0) t = 0;
+                const m = Math.floor(t / 60);
+                return `${String(m).padStart(2, "0")}:${(t - m * 60).toFixed(2).padStart(5, "0")}`;
+            };
+
+            // ---------------- 状态 ----------------
+            const state = {
+                video: null,      // {url, name, el, duration, width, height}
+                s2d: null,        // {frames,fps,numFrames,numJoints,dim,key,name,...}
+                s3d: null,
+                topo: [],         // 骨骼拓扑（两栏共用）
+                playing: false,
+                time: 0,          // 主时钟（秒）
+                speed: 1,
+                scrubbing: false,
+                coordMode: "auto",
+                overlayFlipY: false,
+                flip3d: false,
+                autoUpright: true, // 由骨架自身推断朝向并摆正
+                orient: null,      // 检测出的旋转矩阵
+                rootCenter: true,  // 逐帧把盆骨移到原点
+                showGrid: true,    // 网格恒过原点，这里只管显示/隐藏
+                selectedJoint: null, // 3D 里被点选高亮的关节下标
+                geom: null,        // 2D 叠加几何缓存
+            };
+
+            let theme = "dark";
+            const primaryFps = () => state.s3d?.fps || state.s2d?.fps || 30;
+            const frameIndex = (track, t) =>
+                track ? clamp(Math.floor(t * track.fps), 0, track.numFrames - 1) : -1;
+
+            function totalDuration() {
+                const parts = [];
+                if (state.video?.duration) parts.push(state.video.duration);
+                if (state.s2d) parts.push(state.s2d.numFrames / state.s2d.fps);
+                if (state.s3d) parts.push(state.s3d.numFrames / state.s3d.fps);
+                return parts.length ? Math.max(...parts) : 0;
+            }
+
+            // ---------------- 三、主时钟 ----------------
+            let lastTick = 0;
+            function tick(now) {
+                requestAnimationFrame(tick);
+                const dt = lastTick ? Math.min((now - lastTick) / 1000, 0.25) : 0;
+                lastTick = now;
+
+                if (state.playing) {
+                    const video = state.video?.el;
+                    if (video && video.readyState >= 2) {
+                        state.time = video.currentTime;      // 视频就是主时钟
+                    } else {
+                        const total = totalDuration();
+                        state.time += dt * state.speed;      // 无视频：合成时钟
+                        if (total > 0 && state.time >= total) state.time = 0;
+                    }
+                    renderAll();
+                }
+                draw3d();
+            }
+
+            function renderAll() {
+                draw2d();
+                update3dPose();
+                updateReadouts();
+            }
+
+            function updateReadouts() {
+                const total = totalDuration();
+                if (!state.scrubbing) {
+                    el("progress").value = total > 0 ? Math.round((state.time / total) * 1000) : 0;
+                }
+                if (document.activeElement !== el("frameInput")) el("frameInput").value = Math.floor(state.time * primaryFps());
+                el("frameInput").max = Math.max(0, Math.ceil(total * primaryFps()) - 1);
+                el("timeLabel").innerText = `${fmtTime(state.time)} / ${fmtTime(total)}`;
+                const i2 = frameIndex(state.s2d, state.time);
+                const i3 = frameIndex(state.s3d, state.time);
+                el("count2d").innerText = state.s2d ? `${i2}/${state.s2d.numFrames - 1}` : "–";
+                el("count3d").innerText = state.s3d ? `${i3}/${state.s3d.numFrames - 1}` : "–";
+            }
+
+            function setPlaying(playing) {
+                state.playing = playing;
+                el("playBtn").innerText = playing ? "暂停" : "播放";
+                const video = state.video?.el;
+                if (video) {
+                    if (playing) {
+                        const url = state.video.url;
+                        video.playbackRate = clamp(state.speed, 0.0625, 16);
+                        video.play().catch(() => { if (state.video?.el === video && state.video?.url === url) setPlaying(false); });
+                    } else {
+                        video.pause();
+                    }
+                }
+            }
+
+            function seek(t) {
+                setPlaying(false);
+                state.time = clamp(t, 0, totalDuration());
+                const video = state.video?.el;
+                if (video && video.readyState >= 1) video.currentTime = state.time;
+                renderAll();
+            }
+
+            // ---------------- 左栏：视频 + 2D 叠加 ----------------
+            function setVideo(file, sourceUrl = null) {
+                const video = el("video");
+                if (state.video) URL.revokeObjectURL(state.video.url);
+                const url = sourceUrl || URL.createObjectURL(file);
+                state.video = { url, name: file.name, el: video, duration: 0, width: 0, height: 0 };
+
+                video.src = url;
+                video.muted = true;  // 静音允许切包后自动播放，骨骼查看不依赖音轨
+                video.loop = true;          // 循环：主时钟跟着回到 0，骨骼同步跟随
+                video.onloadedmetadata = () => {
+                    if (!state.video || state.video.url !== url) return;
+                    state.video.duration = isFinite(video.duration) ? video.duration : 0;
+                    state.video.width = video.videoWidth;
+                    state.video.height = video.videoHeight;
+                    video.classList.add("loaded");
+                    updateGeom();
+                    updateInfo();
+                    emptyState();
+                    renderAll();
+                };
+                video.onerror = () => {
+                    if (!state.video || state.video.url !== url) return;
+                    state.video = null; video.classList.remove("loaded");
+                    el("packageStatus").textContent += "\n视频无法解码：video.mp4";
+                    el("packageStatus").classList.add("error");
+                    updateGeom(); updateInfo(); emptyState(); renderAll();
+                };
+                updateInfo();
+                renderAll();
+            }
+
+            function emptyState() {
+                el("hint2d").classList.toggle("hidden", Boolean(state.video || state.s2d));
+                el("hint3d").classList.toggle("hidden", Boolean(state.s3d));
+            }
+
+            // 2D 数据包围盒（原始坐标）
+            function bounds2d() {
+                let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+                for (const frame of state.s2d.frames) {
+                    for (const p of frame) {
+                        if (p[0] < minX) minX = p[0];
+                        if (p[0] > maxX) maxX = p[0];
+                        if (p[1] < minY) minY = p[1];
+                        if (p[1] > maxY) maxY = p[1];
+                    }
+                }
+                return { minX, maxX, minY, maxY };
+            }
+
+            function updateGeom() {
+                const stage = el("s2dStage");
+                const canvas = el("s2dCanvas");
+                const W = stage.clientWidth, H = stage.clientHeight;
+                const dpr = window.devicePixelRatio || 1;
+                const video = state.video;
+                const flip = state.overlayFlipY;
+
+                let dispW = W, dispH = H, ox = 0, oy = 0, toCanvas = null;
+
+                if (video && video.width) {
+                    // 画布精确盖住视频按 contain 显示后的区域
+                    const scale = Math.min(W / video.width, H / video.height);
+                    dispW = Math.max(1, Math.round(video.width * scale));
+                    dispH = Math.max(1, Math.round(video.height * scale));
+                    ox = Math.round((W - dispW) / 2);
+                    oy = Math.round((H - dispH) / 2);
+
+                    const normalized =
+                        state.coordMode === "normalized" ||
+                        (state.coordMode === "auto" && state.s2d?.autoNormalized);
+                    const sx = normalized ? dispW : dispW / video.width;
+                    const sy = normalized ? dispH : dispH / video.height;
+                    toCanvas = (x, y) => [x * sx, flip ? dispH - y * sy : y * sy];
+                } else if (state.s2d) {
+                    // 没有视频：把骨架铺满整个 stage
+                    const b = bounds2d();
+                    const yLo = flip ? -b.maxY : b.minY;
+                    const yHi = flip ? -b.minY : b.maxY;
+                    const pad = 0.08;
+                    const s = Math.min(
+                        (W * (1 - 2 * pad)) / Math.max(b.maxX - b.minX, 1e-6),
+                        (H * (1 - 2 * pad)) / Math.max(yHi - yLo, 1e-6),
+                    );
+                    const offX = (W - (b.maxX - b.minX) * s) / 2;
+                    const offY = (H - (yHi - yLo) * s) / 2;
+                    toCanvas = (x, y) => {
+                        const yy = flip ? -y : y;
+                        return [(x - b.minX) * s + offX, (yy - yLo) * s + offY];
+                    };
+                }
+
+                canvas.style.left = `${ox}px`;
+                canvas.style.top = `${oy}px`;
+                canvas.style.width = `${dispW}px`;
+                canvas.style.height = `${dispH}px`;
+                canvas.width = Math.max(1, Math.round(dispW * dpr));
+                canvas.height = Math.max(1, Math.round(dispH * dpr));
+
+                state.geom = { dispW, dispH, dpr, toCanvas };
+            }
+
+            function draw2d() {
+                const canvas = el("s2dCanvas");
+                const ctx = canvas.getContext("2d");
+                const geom = state.geom;
+                if (!geom) return;
+
+                const dpr = geom.dpr;
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+                ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
+                if (!state.s2d || !geom.toCanvas) return;
+
+                const index = frameIndex(state.s2d, state.time);
+                const frame = state.s2d.frames[index];
+                if (!frame) return;
+
+                const pts = frame.map((p) => geom.toCanvas(p[0], p[1]));
+                const outline = theme === "light" && !state.video ? "rgba(237, 242, 248, 0.95)" : "rgba(2, 6, 23, 0.8)";
+                const boneColor = theme === "light" && !state.video ? "#007d96" : "#22d3ee";
+
+                // 骨骼：先画深色描边再画亮色，保证在任何视频画面上都看得清
+                for (const pass of [{ w: 5, c: outline }, { w: 2.2, c: boneColor }]) {
+                    ctx.lineWidth = pass.w;
+                    ctx.strokeStyle = pass.c;
+                    ctx.lineCap = "round";
+                    ctx.lineJoin = "round";
+                    ctx.beginPath();
+                    for (const [a, b] of state.topo) {
+                        if (a >= pts.length || b >= pts.length) continue;
+                        ctx.moveTo(pts[a][0], pts[a][1]);
+                        ctx.lineTo(pts[b][0], pts[b][1]);
+                    }
+                    ctx.stroke();
+                }
+
+                const radius = clamp(Math.min(geom.dispW, geom.dispH) * 0.007, 2, 6);
+                for (const p of pts) {
+                    ctx.beginPath();
+                    ctx.arc(p[0], p[1], radius + 1.4, 0, Math.PI * 2);
+                    ctx.fillStyle = outline;
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.arc(p[0], p[1], radius, 0, Math.PI * 2);
+                    ctx.fillStyle = theme === "light" && !state.video ? "#245fae" : "#f8fafc";
+                    ctx.fill();
+                }
+            }
+
+            // ---------------- 右栏：3D ----------------
+            const scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0b1220);
+
+            const camera = new THREE.PerspectiveCamera(45, 1, 0.01, 1000);
+            camera.position.set(1.5, 1.0, 2.0);
+
+            const renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setPixelRatio(window.devicePixelRatio);
+            el("s3dHost").appendChild(renderer.domElement);
+
+            const controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.08;
+
+            scene.add(new THREE.AmbientLight(0xffffff, 0.9));
+
+            const JOINTS_GROUP = new THREE.Group();
+            const BONES_GROUP = new THREE.Group();
+            const HELPERS_GROUP = new THREE.Group();
+            const HIT_GROUP = new THREE.Group();      // 放大的不可见命中球，方便点选
+            scene.add(JOINTS_GROUP, BONES_GROUP, HELPERS_GROUP, HIT_GROUP);
+
+            const JOINT_COLOR = 0x93c5fd;
+            const BONE_COLOR = 0x3b82f6;
+            const JOINT_SELECTED = 0xf59e0b;          // 选中高亮（琥珀）
+            const H36M_NAMES = [
+                "髋", "右髋", "右膝", "右踝", "左髋", "左膝", "左踝",
+                "脊柱", "胸", "颈", "头",
+                "左肩", "左肘", "左腕", "右肩", "右肘", "右腕",
+            ];
+            let jointMaterials = [];
+
+            const dot3 = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+            const cross3 = (a, b) => [
+                a[1] * b[2] - a[2] * b[1],
+                a[2] * b[0] - a[0] * b[2],
+                a[0] * b[1] - a[1] * b[0],
+            ];
+            const norm3 = (v) => {
+                const len = Math.hypot(v[0], v[1], v[2]) || 1;
+                return [v[0] / len, v[1] / len, v[2] / len];
+            };
+
+            // 由骨架自身推断人体朝向，构造"保持手性"的旋转矩阵（行列式 +1）。
+            // 只翻转某一个坐标轴是反射（行列式 -1），会渲染出镜像人体（左右/前后关系反掉），
+            // 常见后果是从背后看人体、姿态怎么看都别扭。
+            //   上   = 头 - 双脚中点
+            //   左   = 左肩 - 右肩
+            //   朝向 = 左 × 上   （把 左/上/前 分别映射到 +x/+y/+z，即面向默认相机）
+            function detectOrientation(frames) {
+                const HEAD = 10, LFOOT = 6, RFOOT = 3, LSHO = 11, RSHO = 14;
+                const upSum = [0, 0, 0];
+                const leftSum = [0, 0, 0];
+                let used = 0;
+                const step = Math.max(1, Math.floor(frames.length / 200));
+                for (let i = 0; i < frames.length; i += step) {
+                    const frame = frames[i];
+                    if (!frame || frame.length <= Math.max(HEAD, LFOOT, RFOOT, LSHO, RSHO)) continue;
+                    for (let k = 0; k < 3; k++) {
+                        upSum[k] += frame[HEAD][k] - (frame[LFOOT][k] + frame[RFOOT][k]) / 2;
+                        leftSum[k] += frame[LSHO][k] - frame[RSHO][k];
+                    }
+                    used++;
+                }
+                if (!used) return null;
+
+                const rawUp = norm3(upSum);
+                const rawLeft = norm3(leftSum);
+
+                // 吸附到最近的坐标轴：只纠正"文件的坐标轴约定"（如 y 轴朝下），
+                // 不把人体本身的平均倾斜（前倾/后仰）也一起转掉，否则变换不可预期、姿态被抹平。
+                const mainAxis = [0, 1, 2].reduce((best, i) => Math.abs(rawUp[i]) > Math.abs(rawUp[best]) ? i : best, 0);
+                const up = [0, 0, 0];
+                up[mainAxis] = rawUp[mainAxis] >= 0 ? 1 : -1;
+
+                // 左：在垂直于 up 的平面内取分量最大的那个轴
+                const leftProjected = rawLeft.map((v, i) => v - dot3(rawLeft, up) * up[i]);
+                const sideAxes = [0, 1, 2].filter((i) => i !== mainAxis);
+                const sideAxis = sideAxes.reduce((best, i) =>
+                    Math.abs(leftProjected[i]) > Math.abs(leftProjected[best]) ? i : best, sideAxes[0]);
+                if (Math.abs(leftProjected[sideAxis]) < 0.4) return null;   // 左右肩退化
+                const left = [0, 0, 0];
+                left[sideAxis] = leftProjected[sideAxis] >= 0 ? 1 : -1;
+
+                const front = cross3(left, up);
+                return { up, left, front, matrix: [left, up, front], rawUp, rawLeft };
+            }
+
+
+            function display3d(point) {
+                let [x, y, z] = point;
+                const orient = state.orient;
+                if (orient) {
+                    const m = orient.matrix;
+                    [x, y, z] = [
+                        m[0][0] * point[0] + m[0][1] * point[1] + m[0][2] * point[2],
+                        m[1][0] * point[0] + m[1][1] * point[1] + m[1][2] * point[2],
+                        m[2][0] * point[0] + m[2][1] * point[1] + m[2][2] * point[2],
+                    ];
+                }
+                // 手动上下颠倒：绕 x 轴 180°，仍是旋转，不会造成镜像
+                if (state.flip3d) {
+                    y = -y;
+                    z = -z;
+                }
+                return [x, y, z];
+            }
+
+            // 盆骨（关节 0 = H36M Hip）的显示坐标；关闭开关时返回世界原点
+            function frameOrigin3d(frame) {
+                if (!state.rootCenter || !frame || !frame.length) return [0, 0, 0];
+                return display3d(frame[0]);
+            }
+
+            // 关节最终位置 = 显示坐标 - 盆骨显示坐标（整体偏移）
+            function posePoint3d(point, origin) {
+                const p = display3d(point);
+                return [p[0] - origin[0], p[1] - origin[1], p[2] - origin[2]];
+            }
+
+            function bounds3d() {
+                const min = [Infinity, Infinity, Infinity];
+                const max = [-Infinity, -Infinity, -Infinity];
+                for (const frame of state.s3d.frames) {
+                    const origin = frameOrigin3d(frame);
+                    for (const point of frame) {
+                        const p = posePoint3d(point, origin);
+                        for (let axis = 0; axis < 3; axis++) {
+                            if (p[axis] < min[axis]) min[axis] = p[axis];
+                            if (p[axis] > max[axis]) max[axis] = p[axis];
+                        }
+                    }
+                }
+                const center = [0, 1, 2].map((i) => (min[i] + max[i]) / 2);
+                const radius = Math.max(Math.max(...[0, 1, 2].map((i) => max[i] - min[i])) / 2, 1e-3);
+                return { center, radius, min };
+            }
+
+            function clearGroup(group) {
+                while (group.children.length) {
+                    const child = group.children.pop();
+                    if (child.geometry) child.geometry.dispose();
+                    if (child.material) child.material.dispose();
+                }
+            }
+
+            function build3d() {
+                clearGroup(JOINTS_GROUP);
+                clearGroup(BONES_GROUP);
+                clearGroup(HELPERS_GROUP);
+                clearGroup(HIT_GROUP);
+                if (!state.s3d) return;
+
+                const { radius } = bounds3d();
+                const jointGeo = new THREE.SphereGeometry(radius * 0.025, 14, 14);
+                const hitGeo = new THREE.SphereGeometry(radius * 0.025 * 3, 8, 8);
+                const hitMat = new THREE.MeshBasicMaterial({ visible: false });
+                jointMaterials = [];
+                for (let i = 0; i < state.s3d.numJoints; i++) {
+                    // 每个关节独立材质，才能单独高亮
+                    const material = new THREE.MeshBasicMaterial({ color: theme === "light" ? 0x286acc : JOINT_COLOR });
+                    jointMaterials.push(material);
+                    JOINTS_GROUP.add(new THREE.Mesh(jointGeo, material));
+                    HIT_GROUP.add(new THREE.Mesh(hitGeo, hitMat));
+                }
+                updateJointColors();
+
+                for (const [a, b] of state.topo) {
+                    if (a >= state.s3d.numJoints || b >= state.s3d.numJoints) continue;
+                    const geometry = new THREE.BufferGeometry();
+                    geometry.setAttribute("position", new THREE.Float32BufferAttribute(new Float32Array(6), 3));
+                    const line = new THREE.Line(
+                        geometry,
+                        new THREE.LineBasicMaterial({ color: theme === "light" ? 0x245fae : BONE_COLOR, transparent: true, opacity: 0.9 }),
+                    );
+                    line.userData = { a, b };
+                    BONES_GROUP.add(line);
+                }
+
+                // 网格恒过原点（中心 = 世界原点，y=0）：盆骨固定到原点时正好落在网格中心上，
+                // 是判断"是否真的在原点"的参照面。这里只控制显示/隐藏。
+                const grid = new THREE.GridHelper(radius * 6, 12, theme === "light" ? 0xa8b9cf : 0x334155, theme === "light" ? 0xcbd6e4 : 0x1e293b);
+                grid.position.set(0, 0, 0);
+                grid.visible = state.showGrid;
+                HELPERS_GROUP.add(grid);
+
+                // 原点三轴标记（R=x, G=y, B=z），原点就在盆骨处，便于核对坐标
+                HELPERS_GROUP.add(new THREE.AxesHelper(radius * 0.7));
+
+                resetView3d();
+            }
+
+            function update3dPose() {
+                if (!state.s3d || !JOINTS_GROUP.children.length) return;
+                const frame = state.s3d.frames[frameIndex(state.s3d, state.time)];
+                if (!frame) return;
+                const origin = frameOrigin3d(frame);
+
+                for (let i = 0; i < state.s3d.numJoints; i++) {
+                    const p = posePoint3d(frame[i], origin);
+                    const mesh = JOINTS_GROUP.children[i];
+                    if (mesh) mesh.position.set(p[0], p[1], p[2]);
+                    const hit = HIT_GROUP.children[i];      // 命中球跟随关节
+                    if (hit) hit.position.set(p[0], p[1], p[2]);
+                }
+                for (const line of BONES_GROUP.children) {
+                    const { a, b } = line.userData;
+                    const s = posePoint3d(frame[a], origin);
+                    const e = posePoint3d(frame[b], origin);
+                    const arr = line.geometry.attributes.position.array;
+                    arr[0] = s[0]; arr[1] = s[1]; arr[2] = s[2];
+                    arr[3] = e[0]; arr[4] = e[1]; arr[5] = e[2];
+                    line.geometry.attributes.position.needsUpdate = true;
+                    line.geometry.computeBoundingSphere();
+                }
+                updateJointReadout();      // 选中关节的坐标随帧刷新
+            }
+
+            // ---------------- 3D 选点：高亮 + 显示坐标 ----------------
+            function updateJointColors() {
+                jointMaterials.forEach((material, i) => {
+                    const on = i === state.selectedJoint;
+                    material.color.setHex(on ? JOINT_SELECTED : (theme === "light" ? 0x286acc : JOINT_COLOR));
+                    const mesh = JOINTS_GROUP.children[i];
+                    if (mesh) mesh.scale.setScalar(on ? 1.8 : 1);
+                });
+            }
+
+            function updateJointReadout() {
+                const box = el("jointReadout");
+                const j = state.selectedJoint;
+                if (j === null || j === undefined || !state.s3d || !state.s3d.frames.length) {
+                    box.classList.remove("visible");
+                    return;
+                }
+                const idx = frameIndex(state.s3d, state.time);
+                const raw = state.s3d.frames[idx][j];
+                const mesh = JOINTS_GROUP.children[j];
+                if (!raw || !mesh) {
+                    box.classList.remove("visible");
+                    return;
+                }
+                const view = mesh.position;
+                const rule = (v) => [v[0], v[1], v[2]].map((n) => Number(n).toFixed(4)).join(", ");
+                box.innerHTML =
+                    `<span class="close" id="readoutClose" title="取消选中">×</span>` +
+                    `<b>#${j} ${H36M_NAMES[j] || ""}</b><br />` +
+                    `帧 <span class="mono">${idx}</span>` +
+                    `　时间 <span class="mono">${(idx / state.s3d.fps).toFixed(2)}s</span><br />` +
+                    `文件坐标 <span class="mono">(${rule(raw)})</span><br />` +
+                    `视图坐标 <span class="mono">(${rule([view.x, view.y, view.z])})</span>`;
+                box.classList.add("visible");
+                const close = el("readoutClose");
+                if (close) {
+                    close.onclick = () => {
+                        state.selectedJoint = null;
+                        updateJointColors();
+                        updateJointReadout();
+                    };
+                }
+            }
+
+            function resetView3d() {
+                if (!state.s3d) return;
+                const { center, radius } = bounds3d();
+                const distance = radius * 3.0;
+                // 固定盆骨时把相机锚在原点（盆骨处），否则锚在包围盒中心
+                const anchor = state.rootCenter ? [0, 0, 0] : center;
+                const planar = state.s3d.dim === 2;
+                if (planar) {
+                    camera.position.set(anchor[0], anchor[1], anchor[2] + distance);
+                } else {
+                    camera.position.set(
+                        anchor[0] + distance * 0.75,
+                        anchor[1] + distance * 0.45,
+                        anchor[2] + distance * 0.85,
+                    );
+                }
+                controls.target.set(anchor[0], anchor[1], anchor[2]);
+                controls.update();
+            }
+
+            function resize3d() {
+                const stage = el("s3dStage");
+                const W = Math.max(1, stage.clientWidth), H = Math.max(1, stage.clientHeight);
+                renderer.setSize(W, H);
+                camera.aspect = W / H;
+                camera.updateProjectionMatrix();
+            }
+
+            function draw3d() {
+                controls.update();
+                renderer.render(scene, camera);
+            }
+
+            // ---------------- 数据包轨道与信息 ----------------
+            function installTrack(data, slot) {
+                    // 自动判断 2D 坐标是否为 0–1 归一化
+                    let maxAbs = 0;
+                    if (slot === "2d") {
+                        for (const frame of data.frames) {
+                            for (const p of frame) {
+                                maxAbs = Math.max(maxAbs, Math.abs(p[0]), Math.abs(p[1]));
+                            }
+                        }
+                    }
+
+                    // 3D：盆骨（关节 0）相对原点的最大逐帧位移，用来判断"固定到原点"是否有实际作用
+                    let rootDrift = 0;
+                    if (slot === "3d") {
+                        for (const frame of data.frames) {
+                            const p = frame[0];
+                            rootDrift = Math.max(rootDrift, Math.hypot(p[0], p[1], p[2]));
+                        }
+                    }
+
+                    const track = {
+                        name: `kp${slot}.npz`,
+                        frames: data.frames,
+                        fps: data.fps,
+                        numFrames: data.num_frames,
+                        numJoints: data.num_joints,
+                        dim: data.dim,
+                        key: data.source_key,
+                        hasConfidence: data.has_confidence,
+                        confRange: data.confidence_range,
+                        confSuspect: data.confidence_suspect,
+                        nonfinite: data.nonfinite_replaced,
+                        rootDrift: slot === "3d" ? rootDrift : undefined,
+                        autoNormalized: slot === "2d" && maxAbs > 0 && maxAbs <= 1.5,
+                    };
+
+                    state.topo = data.bones_topology;
+                    if (slot === "2d") {
+                        state.s2d = track;
+                        updateGeom();
+                    } else {
+                        state.s3d = track;
+                        state.orient = state.autoUpright ? detectOrientation(track.frames) : null;
+                        state.selectedJoint = null;   // 换数据后清掉旧的选中
+                        build3d();
+                    }
+            }
+
+            let packages = [], groups = [], visiblePackages = [], selectedPath = null, loadVersion = 0, listVersion = 0;
+            let datasetSource = "dataset-mock";
+            try { if (localStorage.getItem("kps-viewer-source") === "dataset") datasetSource = "dataset"; } catch {}
+            el("datasetSource").value = datasetSource;
+            const expandedGroups = new Map();
+            function renderPackages() {
+                const query = el("packageSearch").value.trim().toLowerCase();
+                visiblePackages = packages.filter(item => item.path.toLowerCase().includes(query));
+                el("packageCount").textContent = `${visiblePackages.length} / ${packages.length} 个资源包`;
+                const list = el("packageList"); list.replaceChildren();
+                for (const name of groups) {
+                    const items = visiblePackages.filter(item => item.path.split("/")[0] === name);
+                    if (query && !items.length) continue;
+                    const group = document.createElement("details"); group.className = "tree-group";
+                    group.open = Boolean(query) || (expandedGroups.get(name) ?? true);
+                    group.ontoggle = () => { if (!query && group.isConnected) expandedGroups.set(name, group.open); };
+                    const summary = document.createElement("summary"); summary.append(document.createTextNode(name));
+                    const count = document.createElement("span"); count.textContent = items.length; summary.append(count);
+                    const children = document.createElement("div"); children.className = "tree-children";
+                    for (const item of items) {
+                        const button = document.createElement("button"); button.className = "package-item";
+                        button.setAttribute("aria-current", String(item.path === selectedPath)); button.title = item.path;
+                        const title = document.createElement("span"); title.textContent = item.path.split("/")[1];
+                        button.append(title); button.onclick = () => openPackage(item.path); children.append(button);
+                    }
+                    group.append(summary, children); list.append(group);
+                }
+                if (!visiblePackages.length) {
+                    const message = document.createElement("div"); message.className = "info";
+                    message.textContent = packages.length ? "没有匹配的资源包" : `尚无资源包，请放入 ${datasetSource}/分类/包名`; list.append(message);
+                }
+                const index = visiblePackages.findIndex(item => item.path === selectedPath);
+                el("prevPackage").disabled = index <= 0;
+                el("nextPackage").disabled = index < 0 || index >= visiblePackages.length - 1;
+            }
+            async function refreshPackages() {
+                const version = ++listVersion;
+                const source = datasetSource;
+                try {
+                    const response = await fetch(`/api/packages?source=${source}`);
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    const data = await response.json(); if (version !== listVersion || source !== datasetSource) return; packages = data.packages; groups = data.groups; renderPackages();
+                } catch (error) { if (version === listVersion && source === datasetSource) el("packageStatus").textContent = `目录扫描失败：${error.message}`; }
+            }
+            function clearPackage() {
+                setPlaying(false); state.time = 0; state.scrubbing = false;
+                const video = el("video"); video.onloadedmetadata = null; video.onerror = null;
+                video.pause(); video.removeAttribute("src"); video.load(); video.classList.remove("loaded");
+                if (state.video?.url.startsWith("blob:")) URL.revokeObjectURL(state.video.url);
+                state.video = null; state.s2d = null; state.s3d = null; state.selectedJoint = null;
+                for (const group of [JOINTS_GROUP, BONES_GROUP, HELPERS_GROUP, HIT_GROUP]) {
+                    while (group.children.length) {
+                        const child = group.children[0]; group.remove(child); child.geometry?.dispose();
+                        if (child.material) child.material.dispose();
+                    }
+                }
+                updateJointReadout(); updateInfo(); updateGeom(); emptyState(); renderAll();
+            }
+            async function openPackage(path) {
+                const version = ++loadVersion; const source = datasetSource; selectedPath = path; clearPackage(); renderPackages();
+                expandedGroups.set(path.split("/")[0], true); renderPackages();
+                el("packageTitle").textContent = path.split("/")[1];
+                el("packagePath").textContent = `${source} / ${path.split("/").join(" / ")}`;
+                el("packageTitle").title = path.split("/")[1];
+                el("packagePath").title = el("packagePath").textContent;
+                el("packageStatus").classList.remove("error"); el("packageStatus").textContent = "正在读取数据包…";
+                el("remarkText").textContent = el("metaText").textContent = "读取中…";
+                try {
+                    const response = await fetch(`/api/package?source=${source}&path=${encodeURIComponent(path)}`);
+                    if (!response.ok) throw new Error((await response.json()).detail || `HTTP ${response.status}`);
+                    const data = await response.json(); if (version !== loadVersion) return;
+                    for (const slot of ["2d", "3d"]) if (data.tracks[slot]) installTrack(data.tracks[slot], slot);
+                    const remarkName = Object.hasOwn(data.texts, "remark.txt") ? "remark.txt" : "remakr.txt";
+                    el("remarkName").textContent = Object.hasOwn(data.texts, remarkName) ? remarkName : "remark.txt";
+                    el("remarkText").textContent = data.texts[remarkName] ?? "（无 remark.txt）";
+                    el("metaText").textContent = data.texts["meta.json"] ?? "（无 meta.json）";
+                    const notes = [...data.errors];
+                    if (!state.s2d) notes.push("未加载 2D 骨骼"); if (!state.s3d) notes.push("未加载 3D 骨骼");
+                    if (state.s2d && state.s3d && (state.s2d.numFrames !== state.s3d.numFrames || state.s2d.fps !== state.s3d.fps)) notes.push("2D / 3D 帧数或 FPS 不一致，按时间同步；较短序列停在末帧");
+                    if (!data.video) notes.push(state.s2d ? "无视频，独立显示 2D 骨骼" : "无视频");
+                    el("packageStatus").textContent = notes.length ? notes.join(" · ") : "已加载 2D、3D 和视频";
+                    el("packageStatus").classList.toggle("error", data.errors.length > 0);
+                    if (data.video) setVideo({name:"video.mp4"}, data.video);
+                    updateInfo(); updateGeom(); emptyState(); renderAll();
+                    setPlaying(Boolean(state.s2d || state.s3d || state.video));
+                } catch (error) {
+                    if (version !== loadVersion) return;
+                    el("packageStatus").textContent = `加载失败：${error.message}`; el("packageStatus").classList.add("error");
+                    el("remarkText").textContent = el("metaText").textContent = "加载失败";
+                }
+            }
+            function stepFrame(direction) {setPlaying(false); seek((Math.round(state.time * primaryFps()) + direction) / primaryFps());}
+            const sidebarRatios = {browser: null, inspector: null};
+            try {
+                const saved = JSON.parse(localStorage.getItem("kps-viewer-widths") || "{}");
+                for (const key of Object.keys(sidebarRatios)) if (Number.isFinite(saved[key]) && saved[key] > 0 && saved[key] < 0.5) sidebarRatios[key] = saved[key];
+            } catch {}
+            function sidebarLimits(side) {
+                const width = el("workspace").clientWidth;
+                const docked = innerWidth > 900 && !el("workspace").classList.contains("inspector-collapsed");
+                const other = side === "browser" ? (docked ? document.querySelector(".inspector").getBoundingClientRect().width : 0) : document.querySelector(".browser").getBoundingClientRect().width;
+                const min = side === "browser" ? 160 : 180;
+                return {min, max: Math.max(min, Math.min(width * 0.45, width - other - 320 - (docked ? 12 : 6)))};
+            }
+            function updateSidebarWidths() {
+                if (innerWidth <= 650) return;
+                const workspace = el("workspace"), width = workspace.clientWidth;
+                for (const side of ["browser", "inspector"]) {
+                    const limits = sidebarLimits(side);
+                    const fallback = side === "browser" ? (innerWidth <= 1150 ? 200 : 210) : (innerWidth <= 1150 ? 230 : 250);
+                    const value = Math.round(clamp(sidebarRatios[side] === null ? fallback : sidebarRatios[side] * width, limits.min, limits.max));
+                    workspace.style.setProperty(`--${side}-width`, `${value}px`);
+                    const handle = el(side === "browser" ? "resizeBrowser" : "resizeInspector");
+                    handle.setAttribute("aria-valuemin", limits.min); handle.setAttribute("aria-valuemax", Math.round(limits.max));
+                    handle.setAttribute("aria-valuenow", value); handle.setAttribute("aria-valuetext", `${value} 像素`);
+                }
+            }
+            function storeSidebarWidths() {try {localStorage.setItem("kps-viewer-widths", JSON.stringify(sidebarRatios));} catch {}}
+            for (const [id, side] of [["resizeBrowser", "browser"], ["resizeInspector", "inspector"]]) {
+                const handle = el(id); let drag = null;
+                function setWidth(value) {
+                    const limits = sidebarLimits(side);
+                    sidebarRatios[side] = clamp(value, limits.min, limits.max) / el("workspace").clientWidth;
+                    updateSidebarWidths();
+                }
+                handle.addEventListener("pointerdown", event => {
+                    if (event.button !== 0 || drag) return;
+                    event.preventDefault(); handle.focus();
+                    drag = {id: event.pointerId, x: event.clientX, width: Number(handle.getAttribute("aria-valuenow"))};
+                    handle.setPointerCapture(event.pointerId); handle.classList.add("dragging"); document.body.classList.add("resizing");
+                });
+                handle.addEventListener("pointermove", event => {
+                    if (drag?.id === event.pointerId) setWidth(drag.width + (event.clientX - drag.x) * (side === "browser" ? 1 : -1));
+                });
+                function finish(event) {
+                    if (drag?.id !== event.pointerId) return;
+                    drag = null; handle.classList.remove("dragging"); document.body.classList.remove("resizing");
+                    if (handle.hasPointerCapture(event.pointerId)) handle.releasePointerCapture(event.pointerId);
+                    storeSidebarWidths();
+                }
+                for (const type of ["pointerup", "pointercancel", "lostpointercapture"]) handle.addEventListener(type, finish);
+                window.addEventListener("blur", () => {if (drag) finish({pointerId:drag.id});});
+                handle.addEventListener("keydown", event => {
+                    if (!["ArrowLeft", "ArrowRight", "Home"].includes(event.key)) return;
+                    event.preventDefault();
+                    if (event.key === "Home") sidebarRatios[side] = null;
+                    else setWidth(Number(handle.getAttribute("aria-valuenow")) + (event.key === "ArrowRight" ? 1 : -1) * (side === "browser" ? 1 : -1) * (event.shiftKey ? 40 : 10));
+                    updateSidebarWidths(); storeSidebarWidths();
+                });
+                handle.ondblclick = () => {sidebarRatios[side] = null; updateSidebarWidths(); storeSidebarWidths();};
+            }
+            window.addEventListener("resize", updateSidebarWidths);
+            updateSidebarWidths();
+
+            function showInspector(show) {
+                el("workspace").classList.toggle("inspector-collapsed", !show);
+                el("toggleInspector").setAttribute("aria-expanded", String(show));
+                updateSidebarWidths();
+            }
+            el("toggleInspector").onclick = () => showInspector(el("workspace").classList.contains("inspector-collapsed"));
+            el("closeInspector").onclick = () => showInspector(false);
+            showInspector(innerWidth > 1100);
+            document.querySelectorAll(".tab").forEach(tab => tab.onclick = () => {
+                document.querySelectorAll(".tab").forEach(button => button.setAttribute("aria-selected", String(button === tab)));
+                document.querySelectorAll(".tab-panel").forEach(panel => panel.hidden = panel.id !== tab.dataset.panel);
+            });
+            document.addEventListener("pointerdown", event => {
+                document.querySelectorAll(".settings[open]").forEach(menu => { if (!menu.contains(event.target)) menu.open = false; });
+            });
+            el("datasetSource").onchange = async event => {
+                datasetSource = event.target.value;
+                ++loadVersion; ++listVersion; selectedPath = null;
+                packages = []; groups = []; expandedGroups.clear();
+                clearPackage(); el("packageSearch").value = ""; renderPackages();
+                el("packageTitle").textContent = "选择资源包";
+                el("packageTitle").removeAttribute("title"); el("packagePath").removeAttribute("title");
+                el("packagePath").textContent = `${datasetSource} / 分类 / 资源包`;
+                el("packageStatus").classList.remove("error");
+                el("packageStatus").textContent = "选择资源包后自动播放。";
+                el("remarkText").textContent = el("metaText").textContent = "未选择资源包";
+                try { localStorage.setItem("kps-viewer-source", datasetSource); } catch {}
+                await refreshPackages();
+            };
+            el("packagePath").textContent = `${datasetSource} / 分类 / 资源包`;
+            el("refreshPackages").onclick = refreshPackages;
+            el("packageSearch").oninput = renderPackages;
+            for (const [id, direction] of [["prevPackage", -1], ["nextPackage", 1]]) el(id).onclick = () => {
+                const index = visiblePackages.findIndex(item => item.path === selectedPath);
+                if (visiblePackages[index + direction]) openPackage(visiblePackages[index + direction].path);
+            };
+            el("prevFrame").onclick = () => stepFrame(-1); el("nextFrame").onclick = () => stepFrame(1);
+            el("frameInput").onchange = e => {setPlaying(false); seek(Number(e.target.value) / primaryFps());};
+
+            function updateInfo() {
+                // 2D / 视频
+                const parts2d = [];
+                if (state.video) {
+                    const v = state.video;
+                    parts2d.push(
+                        `<b>${escapeHtml(v.name)}</b> ${v.width}×${v.height}` +
+                            (v.duration ? ` · ${v.duration.toFixed(2)}s` : ""),
+                    );
+                }
+                if (state.s2d) {
+                    const s = state.s2d;
+                    const scale = state.coordMode === "auto"
+                        ? `自动（${s.autoNormalized ? "归一化" : "像素"}）`
+                        : el("coordMode").selectedOptions[0].text;
+                    parts2d.push(
+                        `<b>${escapeHtml(s.name)}</b> ${s.numFrames} 帧 · ${s.numJoints} 关节 · ${s.fps}fps` +
+                            ` · 键 <b>${escapeHtml(s.key)}</b> · 坐标 ${scale}`
+                    );
+                    if (s.hasConfidence) parts2d.push("第 3 通道按置信度丢弃");
+                    if (s.confSuspect) {
+                        const range = s.confRange ? `${s.confRange[0]}–${s.confRange[1]}` : "未知";
+                        parts2d.push(
+                            `<span class="warn">第 3 通道范围 ${range}，不像置信度，` +
+                                `可能把 3D 文件放到了左栏（3D 骨骼应放右栏）</span>`
+                        );
+                    }
+                    if (s.nonfinite > 0) parts2d.push(`<span class="warn">${s.nonfinite} 个 NaN/inf 已置零</span>`);
+                }
+                el("info2d").innerHTML = parts2d.join("<br />");
+
+                // 3D
+                const parts3d = [];
+                if (state.s3d) {
+                    const s = state.s3d;
+                    parts3d.push(
+                        `<b>${escapeHtml(s.name)}</b> ${s.numFrames} 帧 · ${s.numJoints} 关节 · ${s.fps}fps` +
+                            ` · 键 <b>${escapeHtml(s.key)}</b>`
+                    );
+                    if (s.dim === 2) parts3d.push(`<span class="warn">这是 2D 数据，已按 z=0 平面显示</span>`);
+                    if (s.nonfinite > 0) parts3d.push(`<span class="warn">${s.nonfinite} 个 NaN/inf 已置零</span>`);
+                    if (s.rootDrift !== undefined && s.rootDrift >= 1e-6) {
+                        parts3d.push(
+                            state.rootCenter
+                                ? `盆骨逐帧最大位移 ${s.rootDrift.toFixed(3)} → 已固定到原点`
+                                : `<span class="warn">盆骨逐帧最大位移 ${s.rootDrift.toFixed(3)}，未固定到原点</span>`
+                        );
+                    }
+                }
+                el("info3d").innerHTML = parts3d.join("<br />");
+
+                // 徽标
+                const b2 = el("badge2d"), b3 = el("badge3d");
+                if (state.s2d) {
+                    b2.innerText = state.video ? "视频 + 2D" : "仅 2D";
+                    b2.classList.remove("warn");
+                } else {
+                    b2.innerText = state.video ? "仅视频" : "未加载";
+                    b2.classList.remove("warn");
+                }
+                if (state.s3d) {
+                    b3.innerText = state.s3d.dim === 2 ? "2D（平面）" : "3D";
+                    b3.classList.toggle("warn", state.s3d.dim === 2);
+                } else {
+                    b3.innerText = "未加载";
+                    b3.classList.remove("warn");
+                }
+            }
+
+            // ---------------- 交互绑定 ----------------
+            el("playBtn").onclick = () => setPlaying(!state.playing);
+            const progress = el("progress");
+            let scrubPointer = null;
+            function scrubAt(event) {
+                const rect = progress.getBoundingClientRect();
+                // Thumb centre spans the track with a seven-pixel inset at either end.
+                const ratio = clamp((event.clientX - rect.left - 7) / Math.max(1, rect.width - 14), 0, 1);
+                progress.value = Math.round(ratio * 1000);
+                seek(ratio * totalDuration());
+            }
+            progress.addEventListener("pointerdown", event => {
+                if (event.button !== 0 || scrubPointer !== null) return;
+                event.preventDefault(); progress.focus();
+                scrubPointer = event.pointerId; state.scrubbing = true;
+                progress.parentElement.setPointerCapture(event.pointerId); scrubAt(event);
+            });
+            window.addEventListener("pointermove", event => {
+                if (event.pointerId === scrubPointer) scrubAt(event);
+            });
+            function finishScrub(event) {
+                if (event.pointerId !== scrubPointer) return;
+                if (event.type === "pointerup") scrubAt(event);
+                scrubPointer = null; state.scrubbing = false;
+                if (progress.parentElement.hasPointerCapture(event.pointerId)) progress.parentElement.releasePointerCapture(event.pointerId);
+                updateReadouts();
+            }
+            for (const type of ["pointerup", "pointercancel"]) window.addEventListener(type, finishScrub);
+            window.addEventListener("blur", () => {
+                if (scrubPointer !== null) finishScrub({pointerId: scrubPointer, type: "pointercancel"});
+            });
+            progress.oninput = () => {
+                seek((Number(progress.value) / 1000) * totalDuration());
+            };
+
+            el("speed").oninput = (e) => {
+                state.speed = Number(e.target.value) / 100;
+                el("speedLabel").innerText = `${state.speed.toFixed(1)}×`;
+                if (state.video) state.video.el.playbackRate = clamp(state.speed, 0.0625, 16);
+            };
+            el("coordMode").onchange = (e) => {
+                state.coordMode = e.target.value;
+                updateGeom();
+                updateInfo();
+                draw2d();
+            };
+            el("overlayFlipY").onchange = (e) => {
+                state.overlayFlipY = e.target.checked;
+                updateGeom();
+                draw2d();
+            };
+            el("flip3d").onchange = (e) => {
+                state.flip3d = e.target.checked;
+                build3d();
+                update3dPose();
+            };
+            el("rootCenter").onchange = (e) => {
+                state.rootCenter = e.target.checked;
+                build3d();        // 重建网格/关节尺寸并按新包围盒重新取景
+                update3dPose();
+                updateInfo();
+            };
+            el("gridVisible").onchange = (e) => {
+                state.showGrid = e.target.checked;
+                const grid = HELPERS_GROUP.children.find((child) => child.type === "GridHelper");
+                if (grid) grid.visible = state.showGrid;   // 只是显隐，不重建
+            };
+            el("autoUpright").onchange = (e) => {
+                state.autoUpright = e.target.checked;
+                state.orient = state.autoUpright && state.s3d ? detectOrientation(state.s3d.frames) : null;
+                build3d();
+                update3dPose();
+                updateInfo();
+            };
+            el("resetView").onclick = () => resetView3d();
+
+            // 3D 选点：按下与抬起的位移很小才算点击，避免和拖拽旋转冲突
+            const raycaster = new THREE.Raycaster();
+            let pointerStart = null;
+            el("s3dStage").addEventListener("pointerdown", (e) => {
+                pointerStart = { x: e.clientX, y: e.clientY };
+            });
+            el("s3dStage").addEventListener("pointerup", (e) => {
+                const start = pointerStart;
+                pointerStart = null;
+                if (!start || !state.s3d) return;
+                if (Math.hypot(e.clientX - start.x, e.clientY - start.y) > 5) return;
+
+                const rect = renderer.domElement.getBoundingClientRect();
+                if (rect.width < 1 || rect.height < 1) return;
+                raycaster.setFromCamera(
+                    new THREE.Vector2(
+                        ((e.clientX - rect.left) / rect.width) * 2 - 1,
+                        -((e.clientY - rect.top) / rect.height) * 2 + 1,
+                    ),
+                    camera,
+                );
+                const hits = raycaster.intersectObjects(HIT_GROUP.children, false);
+                state.selectedJoint = hits.length ? HIT_GROUP.children.indexOf(hits[0].object) : null;
+                updateJointColors();
+                updateJointReadout();
+            });
+
+            document.addEventListener("keydown", (event) => {
+                if (event.defaultPrevented) return;
+                if (event.target.matches("input, select, textarea, button, summary") || event.target.isContentEditable) return;
+                if (event.code === "Space") {
+                    event.preventDefault();
+                    setPlaying(!state.playing);
+                } else if (event.code === "ArrowLeft" || event.code === "ArrowRight") {
+                    event.preventDefault();
+                    setPlaying(false);
+                    stepFrame(event.code === "ArrowRight" ? 1 : -1);
+                }
+            });
+
+            function applyTheme(value) {
+                theme = value === "light" ? "light" : "dark";
+                document.documentElement.dataset.theme = theme;
+                el("toggleTheme").textContent = theme === "light" ? "暗色模式" : "亮色模式";
+                el("toggleTheme").setAttribute("aria-pressed", String(theme === "light"));
+                scene.background.setHex(theme === "light" ? 0xedf2f8 : 0x0b1220);
+                updateJointColors();
+                BONES_GROUP.children.forEach(line => line.material.color.setHex(theme === "light" ? 0x245fae : BONE_COLOR));
+                const grid = HELPERS_GROUP.children.find(child => child.type === "GridHelper");
+                if (grid) {
+                    const color = new THREE.Color(theme === "light" ? 0xb9c8da : 0x2a384f);
+                    const colors = grid.geometry.attributes.color;
+                    for (let i = 0; i < colors.count; i++) colors.setXYZ(i, color.r, color.g, color.b);
+                    colors.needsUpdate = true;
+                }
+                draw2d(); draw3d();
+                try { localStorage.setItem("kps-viewer-theme", theme); } catch {}
+            }
+            el("toggleTheme").onclick = () => applyTheme(theme === "light" ? "dark" : "light");
+            let savedTheme = "dark";
+            try { savedTheme = localStorage.getItem("kps-viewer-theme") || "dark"; } catch {}
+            applyTheme(savedTheme);
+
+            const observer = new ResizeObserver(() => {
+                resize3d();
+                updateGeom();
+                draw2d();
+            });
+            observer.observe(el("s2dStage"));
+            observer.observe(el("s3dStage"));
+
+            resize3d();
+            updateGeom();
+            emptyState();
+            updateReadouts();
+            refreshPackages();
+            requestAnimationFrame(tick);
+        </script>
+    </body>
+</html>

@@ -1,0 +1,30 @@
+{
+  "clip_id": "s04_take02_good_a",
+  "action_id": "squat",
+  "label": 1,
+  "label_name": "good",
+  "subject_id": "s04",
+  "source": "synthetic_kinematic_v1",
+  "label_source": "generator_rules_not_expert",
+  "source_motion_id": "s04_take02",
+  "synthetic": true,
+  "seed": 20261012,
+  "error_type": null,
+  "fps": 30,
+  "num_frames": 93,
+  "joint_format": "h36m_17",
+  "has_2d": true,
+  "has_3d": true,
+  "view": "yaw_1.0539",
+  "units_3d": "metres",
+  "up_axis": "Y",
+  "coordinates_2d": "normalized_image_xy_down",
+  "parameters": {
+    "scale": 0.9080594592285548,
+    "half_hip_width": 0.1361005440996957,
+    "bottom_hip_height": 0.3775632007221016,
+    "trunk_lean_amplitude": 0.3345370382112729,
+    "descent_fraction": 0.5080840159570028,
+    "camera_yaw": 1.0538984024727553
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "clip_id": "s02_take02_insufficient_depth",
+  "action_id": "squat",
+  "label": 0,
+  "label_name": "bad",
+  "subject_id": "s02",
+  "source": "synthetic_kinematic_v1",
+  "label_source": "generator_rules_not_expert",
+  "source_motion_id": "s02_take02",
+  "synthetic": true,
+  "seed": 20261012,
+  "error_type": "insufficient_depth",
+  "fps": 30,
+  "num_frames": 116,
+  "joint_format": "h36m_17",
+  "has_2d": true,
+  "has_3d": true,
+  "view": "yaw_1.1287",
+  "units_3d": "metres",
+  "up_axis": "Y",
+  "coordinates_2d": "normalized_image_xy_down",
+  "parameters": {
+    "scale": 1.0867945747488172,
+    "half_hip_width": 0.13996008754443995,
+    "bottom_hip_height": 0.6206073059411803,
+    "trunk_lean_amplitude": 0.28464437319893354,
+    "descent_fraction": 0.4554808227798884,
+    "camera_yaw": 1.128663597909339
+  }
+}

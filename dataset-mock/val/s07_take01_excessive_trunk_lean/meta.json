@@ -1,0 +1,30 @@
+{
+  "clip_id": "s07_take01_excessive_trunk_lean",
+  "action_id": "squat",
+  "label": 0,
+  "label_name": "bad",
+  "subject_id": "s07",
+  "source": "synthetic_kinematic_v1",
+  "label_source": "generator_rules_not_expert",
+  "source_motion_id": "s07_take01",
+  "synthetic": true,
+  "seed": 20261012,
+  "error_type": "excessive_trunk_lean",
+  "fps": 30,
+  "num_frames": 102,
+  "joint_format": "h36m_17",
+  "has_2d": true,
+  "has_3d": true,
+  "view": "yaw_-0.3765",
+  "units_3d": "metres",
+  "up_axis": "Y",
+  "coordinates_2d": "normalized_image_xy_down",
+  "parameters": {
+    "scale": 0.922871221342069,
+    "half_hip_width": 0.1357711369636481,
+    "bottom_hip_height": 0.3572208183857192,
+    "trunk_lean_amplitude": 1.0052666433207906,
+    "descent_fraction": 0.4952886321262114,
+    "camera_yaw": -0.37654827339533126
+  }
+}
