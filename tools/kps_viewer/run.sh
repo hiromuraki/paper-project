@@ -16,7 +16,7 @@ cd "$ROOT"
 
 if [[ ! -x "$PY" ]]; then
     echo "未找到 $PY，回退到 uv run（首次会同步依赖）" >&2
-    exec uv run python "$HERE/kps_viewer.py" "$@"
+    exec uv run python "$HERE/kps_viewer.py" -dataset-root "$ROOT" "$@"
 fi
 
 # 检查查看器依赖（发行包名，非 import 名）
@@ -31,4 +31,4 @@ then
     uv sync
 fi
 
-exec "$PY" "$HERE/kps_viewer.py" "$@"
+exec "$PY" "$HERE/kps_viewer.py" -dataset-root "$ROOT" "$@"

@@ -71,7 +71,7 @@ body.resizing,body.resizing *{cursor:col-resize!important;user-select:none!impor
         <div class="workspace" id="workspace">
             <aside class="browser" aria-label="资源目录">
                 <div class="browser-head"><b>资源目录</b><button class="btn ghost" id="refreshPackages">刷新</button></div>
-                <label class="toggle">数据源<select id="datasetSource" aria-label="数据源"><option value="dataset-mock">dataset-mock</option><option value="dataset">dataset</option></select></label>
+                <label class="toggle">数据源<select id="datasetSource" aria-label="数据源"><option value="">扫描数据源…</option></select></label>
                 <input id="packageSearch" type="search" placeholder="搜索资源包…" aria-label="搜索数据包" />
                 <div id="packageCount"></div><div id="packageList"></div>
             </aside>
@@ -720,8 +720,9 @@ body.resizing,body.resizing *{cursor:col-resize!important;user-select:none!impor
             }
 
             let packages = [], groups = [], visiblePackages = [], selectedPath = null, loadVersion = 0, listVersion = 0;
-            let datasetSource = "dataset-mock";
-            try { if (localStorage.getItem("kps-viewer-source") === "dataset") datasetSource = "dataset"; } catch {}
+            let datasetSource = "";
+            let preferredSource = "dataset-mock";
+            try { preferredSource = localStorage.getItem("kps-viewer-source") || preferredSource; } catch {}
             el("datasetSource").value = datasetSource;
             const expandedGroups = new Map();
             function renderPackages() {
@@ -758,7 +759,7 @@ body.resizing,body.resizing *{cursor:col-resize!important;user-select:none!impor
                 const version = ++listVersion;
                 const source = datasetSource;
                 try {
-                    const response = await fetch(`/api/packages?source=${source}`);
+                    const response = await fetch(`/api/packages?source=${encodeURIComponent(source)}`);
                     if (!response.ok) throw new Error(`HTTP ${response.status}`);
                     const data = await response.json(); if (version !== listVersion || source !== datasetSource) return; packages = data.packages; groups = data.groups; renderPackages();
                 } catch (error) { if (version === listVersion && source === datasetSource) el("packageStatus").textContent = `目录扫描失败：${error.message}`; }
@@ -787,7 +788,7 @@ body.resizing,body.resizing *{cursor:col-resize!important;user-select:none!impor
                 el("packageStatus").classList.remove("error"); el("packageStatus").textContent = "正在读取数据包…";
                 el("remarkText").textContent = el("metaText").textContent = "读取中…";
                 try {
-                    const response = await fetch(`/api/package?source=${source}&path=${encodeURIComponent(path)}`);
+                    const response = await fetch(`/api/package?source=${encodeURIComponent(source)}&path=${encodeURIComponent(path)}`);
                     if (!response.ok) throw new Error((await response.json()).detail || `HTTP ${response.status}`);
                     const data = await response.json(); if (version !== loadVersion) return;
                     for (const slot of ["2d", "3d"]) if (data.tracks[slot]) installTrack(data.tracks[slot], slot);
@@ -903,7 +904,30 @@ body.resizing,body.resizing *{cursor:col-resize!important;user-select:none!impor
                 await refreshPackages();
             };
             el("packagePath").textContent = `${datasetSource} / 分类 / 资源包`;
-            el("refreshPackages").onclick = refreshPackages;
+            async function discoverSources() {
+                const version = ++listVersion;
+                try {
+                    const response = await fetch("/api/sources");
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    const data = await response.json(); if (version !== listVersion) return;
+                    const select = el("datasetSource"); select.replaceChildren();
+                    for (const source of data.sources) {
+                        const option = document.createElement("option"); option.value = option.textContent = source; select.append(option);
+                    }
+                    select.disabled = !data.sources.length;
+                    if (!data.sources.length) {
+                        ++loadVersion; datasetSource = ""; selectedPath = null; packages = []; groups = []; clearPackage(); renderPackages();
+                        el("packageTitle").textContent = "选择资源包"; el("packagePath").textContent = data.root;
+                        el("remarkText").textContent = el("metaText").textContent = "未选择资源包";
+                        el("packageStatus").textContent = "根目录下没有 dataset 或 dataset-* 目录"; return;
+                    }
+                    const selected = data.sources.includes(datasetSource) ? datasetSource : data.sources.includes(preferredSource) ? preferredSource : data.sources[0];
+                    select.value = selected;
+                    if (selected !== datasetSource) await select.onchange({target:select});
+                    else await refreshPackages();
+                } catch (error) { if (version === listVersion) el("packageStatus").textContent = `数据源扫描失败：${error.message}`; }
+            }
+            el("refreshPackages").onclick = discoverSources;
             el("packageSearch").oninput = renderPackages;
             for (const [id, direction] of [["prevPackage", -1], ["nextPackage", 1]]) el(id).onclick = () => {
                 const index = visiblePackages.findIndex(item => item.path === selectedPath);
@@ -1132,7 +1156,7 @@ body.resizing,body.resizing *{cursor:col-resize!important;user-select:none!impor
             updateGeom();
             emptyState();
             updateReadouts();
-            refreshPackages();
+            discoverSources();
             requestAnimationFrame(tick);
         </script>
     </body>

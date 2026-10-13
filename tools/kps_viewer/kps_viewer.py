@@ -18,13 +18,12 @@ H36M_PARENTS = [-1, 0, 1, 2, 0, 4, 5, 0, 7, 8, 9, 8, 11, 12, 8, 14, 15]
 BONES = [[child, parent] for child, parent in enumerate(H36M_PARENTS) if parent >= 0]
 
 # 优先尝试的数据键：本项目 kp2d.npz / kp3d.npz 用 keypoints，
-# reconstruction 兼容 keypoints_3d_viewer，kp / x 兼容 scripts/pack_dataset.py。
+# reconstruction 兼容 keypoints_3d_viewer，kp / x 兼容旧数据格式。
 KEY_CANDIDATES = ("keypoints", "reconstruction", "kp", "x")
 
 HTML_PATH = Path(__file__).with_suffix(".html")
 VENDOR_DIR = Path(__file__).parent / "vendor"
-DATASET_DIR = Path(__file__).resolve().parents[2] / "dataset"
-DATASET_MOCK_DIR = DATASET_DIR.parent / "dataset-mock"
+DATASET_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_FPS = 30
 
 app = FastAPI(title="KPS Viewer")
@@ -149,11 +148,24 @@ async def upload_npz(file: UploadFile = File(...), slot: str = "auto") -> JSONRe
 
 
 def dataset_root(source: str) -> Path:
-    if source == "dataset":
-        return DATASET_DIR.resolve()
-    if source == "dataset-mock":
-        return DATASET_MOCK_DIR.resolve()
-    raise HTTPException(400, "数据源只能是 dataset 或 dataset-mock")
+    root = DATASET_ROOT.resolve()
+    if Path(source).name != source or not (source == "dataset" or source.startswith("dataset-")):
+        raise HTTPException(400, "数据源必须是根目录下的 dataset 或 dataset-* 目录")
+    path = (root / source).resolve()
+    if path.parent != root:
+        raise HTTPException(403, "数据源必须位于指定根目录下")
+    if not path.is_dir():
+        raise HTTPException(404, "数据源目录不存在")
+    return path
+
+
+@app.get("/api/sources")
+def sources() -> dict:
+    root = DATASET_ROOT.resolve()
+    names = sorted(path.name for path in root.iterdir()
+                   if path.is_dir() and not path.is_symlink()
+                   and (path.name == "dataset" or path.name.startswith("dataset-"))) if root.is_dir() else []
+    return {"root": str(root), "sources": names}
 
 
 def dataset_path(relative: str, source: str = "dataset") -> Path:
@@ -214,7 +226,7 @@ def package(path: str, source: str = "dataset") -> dict:
                 result["errors"].append(f"{name}: {exc}")
     if dataset_path(f"{path}/video.mp4", source).is_file():
         from urllib.parse import quote
-        result["video"] = "/api/video?source=" + source + "&path=" + quote(path, safe="")
+        result["video"] = "/api/video?source=" + quote(source, safe="") + "&path=" + quote(path, safe="")
     return result
 
 
@@ -247,10 +259,16 @@ def favicon() -> Response:
 
 
 def main() -> None:
+    global DATASET_ROOT
     parser = argparse.ArgumentParser(description="骨骼序列动画查看器")
+    parser.add_argument("-dataset-root", "--dataset-root", type=Path, default=DATASET_ROOT,
+                        help="包含 dataset 和 dataset-* 的根目录，默认项目根目录")
     parser.add_argument("--host", default="127.0.0.1", help="监听地址，默认仅本机")
     parser.add_argument("--port", type=int, default=8000)
     args = parser.parse_args()
+    DATASET_ROOT = args.dataset_root.expanduser().resolve()
+    if not DATASET_ROOT.is_dir():
+        parser.error(f"根目录不存在: {DATASET_ROOT}")
 
     local = args.host.startswith("127.") or args.host in ("::1", "localhost", "")
     notes = [] if local else [f"监听 {args.host}，局域网可用本机 IP 访问"]

@@ -1,0 +1,5 @@
+UI-PRMD / Incorrect Movements / m01_s06_positions_inc.txt
+Vicon optical landmarks approximate H36M-17 joints.
+3D: rigid rotation, metres, Y-up; 2D: synthetic front projection, not camera observations.
+Sampling: 100 -> 30 FPS, timestamp linear interpolation; no anti-alias filter.
+Missing marker samples: 0; interpolated: 0.

@@ -1,0 +1,106 @@
+{
+  "clip_id": "m01_s07_full_bad",
+  "action_id": "squat",
+  "movement_id": "m01",
+  "subject_id": "s07",
+  "episode_id": null,
+  "label": 0,
+  "label_name": "bad",
+  "fps": 30,
+  "source_fps": 100,
+  "resampling": {
+    "method": "timestamp_linear_interpolation",
+    "source_fps": 100,
+    "target_fps": 30,
+    "source_num_frames": 2692,
+    "output_num_frames": 808,
+    "source_last_timestamp_s": 26.91,
+    "output_last_timestamp_s": 26.9,
+    "discarded_tail_s": 0.010000000000001563,
+    "anti_alias_filter": false
+  },
+  "num_frames": 808,
+  "start_frame": 0,
+  "end_frame": 807,
+  "error_type": "non_optimal",
+  "severity": null,
+  "has_2d": true,
+  "has_3d": true,
+  "joint_format": "h36m_17",
+  "units_3d": "metres",
+  "up_axis": "Y",
+  "coordinate_system": "anatomical_right_y_up",
+  "view": "front",
+  "derived_2d": true,
+  "coordinates_2d": "normalized_0_1",
+  "projection": "virtual_front_orthographic",
+  "source": "UI-PRMD",
+  "source_system": "Vicon",
+  "source_file": "Incorrect Movements\\Vicon\\Positions\\m01_s07_positions_inc.txt",
+  "label_source": "dataset_folder_correct_vs_incorrect",
+  "conversion_version": 2,
+  "quality": {
+    "missing_samples": 0,
+    "interpolated_samples": 0,
+    "absent_markers": [],
+    "averaged_marker_fallback_frames": {},
+    "lab_origin_mm": [
+      1094.13,
+      -45.65985,
+      952.5745
+    ],
+    "lab_to_canonical_rotation": [
+      [
+        0.07026776829764148,
+        0.0,
+        -0.997528165386055
+      ],
+      [
+        -0.997528165386055,
+        0.0,
+        -0.07026776829764148
+      ],
+      [
+        0.0,
+        1.0,
+        0.0
+      ]
+    ],
+    "bone_median_m": [
+      0.12011045217514038,
+      0.4672085642814636,
+      0.4186962842941284,
+      0.12011045962572098,
+      0.4593745470046997,
+      0.41859352588653564,
+      0.2733466625213623,
+      0.1279289424419403,
+      0.14585110545158386,
+      0.21278119087219238,
+      0.19620779156684875,
+      0.2820699214935303,
+      0.25019845366477966,
+      0.1967015117406845,
+      0.2661774158477783,
+      0.245944544672966
+    ],
+    "bone_length_cv": [
+      0.009725541807711124,
+      0.12773340940475464,
+      0.041732050478458405,
+      0.009725536219775677,
+      0.11654434353113174,
+      0.041772712022066116,
+      0.06209276616573334,
+      0.033224400132894516,
+      0.007235061842948198,
+      0.046595294028520584,
+      0.007311047986149788,
+      0.006861659232527018,
+      0.002292222809046507,
+      0.007494243793189526,
+      0.008821126073598862,
+      0.00879725068807602
+    ]
+  }
+}

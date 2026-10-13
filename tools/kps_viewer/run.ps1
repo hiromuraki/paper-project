@@ -25,7 +25,7 @@ if (-not (Test-Path -LiteralPath $Py -PathType Leaf)) {
         Write-Error '未找到 uv，无法回退安装依赖，请先安装 https://docs.astral.sh/uv/' -ErrorAction Continue
         exit 127
     }
-    & uv run python $Viewer @args
+    & uv run python $Viewer -dataset-root $Root @args
     exit $LASTEXITCODE
 }
 
@@ -54,5 +54,5 @@ if (-not $DepsOk) {
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 
-& $Py $Viewer @args
+& $Py $Viewer -dataset-root $Root @args
 exit $LASTEXITCODE

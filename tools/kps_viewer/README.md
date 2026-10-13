@@ -1,6 +1,6 @@
 # KPS Viewer
 
-从项目根目录的 `dataset/` 或 `dataset-mock/` 读取数据包，不需要手动上传文件。
+自动发现指定根目录下的 `dataset/` 和全部 `dataset-*/` 目录并读取数据包，不需要手动上传文件。
 
 ```powershell
 # Windows（项目根目录执行）
@@ -32,6 +32,21 @@ Three.js 和 OrbitControls 随工具放在 `vendor/`，无外网依赖。
 
 进度条支持点击任意位置、拖动和键盘方向键定位；所有手动定位都会暂停播放。顶部“亮色模式 / 暗色模式”切换界面与骨骼视图区配色，并记住选择。
 
-左侧数据源下拉框可在 `dataset-mock`（模拟数据）与 `dataset`（实际数据）之间切换，首次默认模拟数据，之后记住选择。两者都采用“根目录 / 分类 / 资源包”结构。切换数据源会清空旧包并停止播放，选择新包后自动播放。
+左侧数据源下拉框动态列出 `dataset`、`dataset-mock`、`dataset-ui-prmd` 等目录，首次优先模拟数据，之后记住选择。所有数据源都采用“根目录 / 分类 / 资源包”结构。切换数据源会清空旧包并停止播放，选择新包后自动播放。
 
 左右侧栏与主视口之间的竖向手柄可拖动调整宽度比例，刷新后保留。双击手柄或按 Home 恢复该侧默认宽度；聚焦手柄后左右方向键微调，Shift 加快。窄屏信息面板浮动或竖向布局时隐藏对应手柄。
+
+
+`-dataset-root` 指定包含这些数据源目录的父目录（也接受 `--dataset-root`）。两个启动脚本默认使用自身位置的 `../../`，先解析为绝对路径，默认就是项目根目录；用户传入的参数可以覆盖默认值。
+
+```powershell
+.\tools\kps_viewer\run.ps1 -dataset-root "D:\motion-data" --port 8080
+# 直接启动 Python：
+.\.venv\Scripts\python.exe tools/kps_viewer/kps_viewer.py -dataset-root "D:\motion-data"
+```
+
+```bash
+bash tools/kps_viewer/run.sh -dataset-root /path/to/motion-data --port 8080
+```
+
+点击刷新会重新发现新增或删除的数据源目录。名称必须是 `dataset` 或以 `dataset-` 开头的直接子目录；目录中的分类 / 资源包层级保持不变。`dataset-raw` 也会按名称规则列出，但其原始文件需先转换成查看器使用的 NPZ 数据包。

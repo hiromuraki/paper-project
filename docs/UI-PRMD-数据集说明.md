@@ -1,9 +1,11 @@
 # UI-PRMD 数据集说明与用法
 
+> 当前工具为独立的 `scripts/convert_ui_prmd.py`，使用方法见 [UI-PRMD-转换-v2.md](UI-PRMD-转换-v2.md)。旧体检、生成和打包脚本已移除。以下数据规模和质量记录来自历史本地扫描。
+
 本文基于对 `dataset-raw/UI-PRMD/` 的全量扫描与逐文件实测，以及原论文
 [Vakanski et al., *Data* 3(1):2, 2018](https://pmc.ncbi.nlm.nih.gov/articles/PMC5773117/)
 （[doi:10.3390/data3010002](https://doi.org/10.3390/data3010002)）写成。
-凡标“实测”的数字都可在本机复现：`python scripts/ui_prmd.py --geometry --json <报告路径>`。
+凡标“实测”的数字为历史本地扫描结果，旧体检命令已停用。
 
 ## 1. 这是什么
 
@@ -73,7 +75,7 @@ dataset-raw/UI-PRMD/
 > **分隔符不统一（实测）**：`Movements/` 与 `Incorrect Movements/` 下的整体文件用
 > **空格**分隔，`Segmented Movements/` 与 `Incorrect Segmented Movements/` 下的分片
 > 文件用**逗号**分隔。论文正文只写了“逗号分隔”，照论文写解析器会在整体文件上报错。
-> `scripts/ui_prmd.py` 两种都接受。文件为 CRLF 换行。
+> `scripts/convert_ui_prmd.py` 两种都接受。文件为 CRLF 换行。
 
 ### 坐标系与单位
 
@@ -125,75 +127,22 @@ RightUpperLeg RightLowerLeg RightFoot RightToes`
 
 ## 5. 怎么用
 
-### 5.1 先体检（只读，不改原始数据）
+当前转换器为单文件 `scripts/convert_ui_prmd.py`，无默认转换参数：
 
 ```powershell
-# 全量：文件数、形状、行列数校验、缺失 trial
-.\.venv\Scripts\python.exe scripts/ui_prmd.py --geometry --json tmp/ui_prmd_survey.json
-
-# 快速抽样
-.\.venv\Scripts\python.exe scripts/ui_prmd.py --quick
-
-# 导出单条序列为 npy 观察
-.\.venv\Scripts\python.exe scripts/ui_prmd.py --dump m01_s01_e01 --system Vicon `
-    --kind positions --subset "Segmented Movements" --out tmp/m01_s01_e01.npy
+uv run scripts/convert_ui_prmd.py --help
+uv run scripts/convert_ui_prmd.py --root dataset-raw/UI-PRMD --out dataset-ui-prmd-new --movement all --segmented --view front --max-gap 10 --fps 30
 ```
 
-### 5.2 推荐路线：只用 Vicon，m01 深蹲，转成本项目的 clip 结构
+新版输出为米单位、Y-up H36M-17 关节和对应的派生 2D 投影，并记录缺失点修复与跳过原因，详见 [UI-PRMD-转换-v2.md](UI-PRMD-转换-v2.md)。输出目录必须为空，不会覆盖以前的结果。
 
-本项目管线只吃 **H36M 17 关节**（`src/skeleton_demo/data.py` 的 `H36M_PARENTS`），
-而 UI-PRMD 的 Vicon 是 39 个标记点，拓扑和数量都不同，必须显式重映射。
-`scripts/ui_prmd.py` 内置了一个约定映射（LASI/RASI→髋，LKNE/RKNE→膝，LANK/RANK→踝，
-T10→Spine，C7+STRN 中点→Thorax，C7→Neck，四个头标记中点→Head，LSHO/RSHO→肩，
-LELB/RELB→肘，LWRA/LWRB 与 RWRA/RWRB 中点→腕）。
-
-```powershell
-# 1) 转成 dataset/ 要求的 clip 结构（默认按人划分 s01-s06 train / s07-s08 val / s09-s10 test）
-.\.venv\Scripts\python.exe scripts/ui_prmd.py --convert --movement m01 `
-    --dataset-out dataset/ui-prmd-squat
-
-# 2) 打包成训练文件
-.\.venv\Scripts\python.exe scripts/pack_dataset.py `
-    --dataset dataset/ui-prmd-squat --out data/ui-prmd --action squat
-
-# 3) 训练 / 评估
-.\.venv\Scripts\python.exe -m skeleton_demo.train --config <指向 data/ui-prmd/squat_train.pt 的配置>
-```
-
-转换产物：120/40/40 条 train/val/test，每条含
-`kp3d.npz`（`[T,17,3]`，米，**Z 轴向上**）、`kp2d.npz`（由 3D 正交投影派生，
-`meta.json` 里标 `derived_2d: true`，**不是**真实 2D 观测）、`meta.json`、`remark.txt`。
-若只要 3D，加 `--no-2d`；若想一人一条（用于 DTW/规则基线），加 `--whole-trial`。
-
-已验证：转换后的骨段长度符合人体比例且帧间稳定（例如小腿 0.42–0.43 m、
-前臂 0.24–0.26 m、Thorax→Neck 0.18 m），打包与 smoke 训练可正常跑通
-（3 epoch、d_model=64，val AUROC 0.80，仅证明管线连通，不构成性能结论）。
-
-### 5.3 注意与本项目模型的约定冲突
-
-- 模型的 `SkeletonEncoder(num_joints=17)` 与本数据转换后的 17 关节一致；
-  若你改成用 22 或 39 关节，必须同步改 `num_joints`，并注意
-  `data.py::build_features` 里硬编码的 `H36M_PARENTS`（长度 17）和
-  `__getitem__` 里硬编码的 `torch.zeros(..., 17, ...)` 占位张量。
-- 3D 数据是 **Z 轴向上**，而 `data.py::rotate_y` 与 `make_kinematic_squat.py` 的
-  增广/生成都假设 **Y 轴向上**。用这份数据时 `rotate_y` 增广不会绕竖直轴转，
-  要么把坐标转成 Y-up，要么关掉该项增广（`configs` 里目前没有单独开关）。
-- 归一化（`normalize_skeleton`）会做根对齐 + 尺度归一，所以 Kinect 的绝对尺度问题
-  在**只看姿态比例**时影响较小；但一旦要用绝对量（下蹲深度、速度、时长），
-  尺度与帧率（Kinect 30 Hz / Vicon 100 Hz）就是硬约束。
-
-### 5.4 不要做的事
-
-- 不要把错误样本当成“某种具体错误”训练多分类，数据里没有这个标注。
-- 不要把 Kinect 与 Vicon 直接逐帧混在一个 batch 里：帧率、关节定义、尺度、坐标轴都不同。
-- 不要把 `e01` 的正确样本和 `e01` 的错误样本当成同一次重复来对比。
-- 不要用 `Movements` 整体文件切窗当独立样本：一次动作在分片文件里已经切好了，
-  优先用分片，切窗会引入同源泄漏。
-- 划分必须按受试者（同一人的 10 次重复不能跨 train/test），`--convert` 已按此实现。
+- 标签仅区分正确 / 非最优，不提供具体错误类别。
+- 2D 来自 3D 投影，不是真实相机观测。
+- 不混入 Kinect，不将正确 / 错误的同编号重复当作同一次动作。
+- 不同时使用整体与分片；按受试者划分，避免同源泄漏。
 
 ## 6. 相关文件
 
-- 读取/体检/转换工具：[scripts/ui_prmd.py](scripts/ui_prmd.py)
+- 转换工具：[convert_ui_prmd.py](../scripts/convert_ui_prmd.py)
 - 数据格式约定：[dataset/README.md](dataset/README.md)
-- 打包脚本：[scripts/pack_dataset.py](scripts/pack_dataset.py)
 - 已有的本地评估与选型记录：[docs/可行性与训练数据评估-2026-10-12.md](docs/可行性与训练数据评估-2026-10-12.md)

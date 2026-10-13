@@ -12,8 +12,10 @@ import kps_viewer as viewer
 class DatasetTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
-        self.root = Path(self.temp.name)
-        self.patch = patch.object(viewer, "DATASET_DIR", self.root)
+        self.base = Path(self.temp.name)
+        self.root = self.base / "dataset"
+        self.root.mkdir()
+        self.patch = patch.object(viewer, "DATASET_ROOT", self.base)
         self.patch.start()
         self.folder = self.root / "test" / "clip_bad_2001"
         self.folder.mkdir(parents=True)
@@ -58,8 +60,8 @@ class DatasetTests(unittest.TestCase):
         result = viewer.package("test/clip_bad_2001")
         self.assertEqual(result["tracks"], {})
         self.assertIsNone(result["video"])
-        with patch.object(viewer, "DATASET_DIR", self.root / "missing"):
-            self.assertEqual(viewer.packages()["packages"], [])
+        with patch.object(viewer, "DATASET_ROOT", self.base / "missing"):
+            self.assertEqual(viewer.sources()["sources"], [])
 
     def test_fixed_depth_includes_empty_packages_but_not_nested_files(self):
         (self.folder / "nested").mkdir()
@@ -75,22 +77,42 @@ class DatasetTests(unittest.TestCase):
             self.assertEqual(error.exception.status_code, 400)
 
     def test_sources_are_isolated_and_video_keeps_source(self):
-        mock_root = self.root / "mock-root"
+        mock_root = self.base / "dataset-mock"
         mock_folder = mock_root / "test" / "clip_bad_2001"
         mock_folder.mkdir(parents=True)
         (mock_folder / "remark.txt").write_text("mock", encoding="utf-8")
         (mock_folder / "video.mp4").write_bytes(b"fixture")
         (self.folder / "remark.txt").write_text("real", encoding="utf-8")
-        with patch.object(viewer, "DATASET_MOCK_DIR", mock_root):
-            self.assertEqual(viewer.packages("dataset-mock")["source"], "dataset-mock")
-            self.assertEqual(viewer.package("test/clip_bad_2001", "dataset-mock")["texts"]["remark.txt"], "mock")
-            self.assertEqual(viewer.package("test/clip_bad_2001")["texts"]["remark.txt"], "real")
-            result = viewer.package("test/clip_bad_2001", "dataset-mock")
-            self.assertIn("source=dataset-mock", result["video"])
-            self.assertEqual(viewer.package_video("test/clip_bad_2001", "dataset-mock").path, mock_folder / "video.mp4")
+        self.assertEqual(viewer.packages("dataset-mock")["source"], "dataset-mock")
+        self.assertEqual(viewer.package("test/clip_bad_2001", "dataset-mock")["texts"]["remark.txt"], "mock")
+        self.assertEqual(viewer.package("test/clip_bad_2001")["texts"]["remark.txt"], "real")
+        result = viewer.package("test/clip_bad_2001", "dataset-mock")
+        self.assertIn("source=dataset-mock", result["video"])
+        self.assertEqual(viewer.package_video("test/clip_bad_2001", "dataset-mock").path, mock_folder / "video.mp4")
+        with self.assertRaises(HTTPException) as error:
+            viewer.dataset_path("../test/clip_bad_2001", "dataset-mock")
+        self.assertEqual(error.exception.status_code, 403)
+
+    def test_source_discovery_and_custom_root(self):
+        for name in ("dataset-mock", "dataset-ui-prmd", "dataset-raw", "not-a-dataset"):
+            (self.base / name).mkdir()
+        self.assertEqual(viewer.sources()["sources"], ["dataset", "dataset-mock", "dataset-raw", "dataset-ui-prmd"])
+        self.assertEqual(viewer.dataset_root("dataset-ui-prmd"), self.base / "dataset-ui-prmd")
+        for invalid in ("../dataset", "dataset/child", "dataset-mock/../dataset", "not-a-dataset"):
             with self.assertRaises(HTTPException) as error:
-                viewer.dataset_path("../test/clip_bad_2001", "dataset-mock")
-            self.assertEqual(error.exception.status_code, 403)
+                viewer.packages(invalid)
+            self.assertEqual(error.exception.status_code, 400)
+
+    def test_video_source_name_is_url_encoded(self):
+        from urllib.parse import parse_qs, urlparse
+        source = "dataset-case & 测试"
+        folder = self.base / source / "test" / "clip"
+        folder.mkdir(parents=True)
+        (folder / "video.mp4").write_bytes(b"fixture")
+        url = viewer.package("test/clip", source)["video"]
+        query = parse_qs(urlparse(url).query)
+        self.assertEqual(query["source"], [source])
+        self.assertEqual(query["path"], ["test/clip"])
 
     def test_unknown_source_rejected(self):
         with self.assertRaises(HTTPException) as error:

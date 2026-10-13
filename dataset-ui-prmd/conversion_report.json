@@ -1,0 +1,89 @@
+{
+  "input_root": "C:\\Users\\11717\\Desktop\\paper-project\\dataset-raw\\UI-PRMD",
+  "output_root": "C:\\Users\\11717\\Desktop\\paper-project\\dataset-ui-prmd",
+  "input_files": 20,
+  "converted": 18,
+  "skipped": [
+    {
+      "source_file": "Movements\\Vicon\\Positions\\m01_s10_positions.txt",
+      "reason": "H36M joint 1 has unrecoverable missing markers: ('RASI',)"
+    },
+    {
+      "source_file": "Incorrect Movements\\Vicon\\Positions\\m01_s10_positions_inc.txt",
+      "reason": "H36M joint 1 has unrecoverable missing markers: ('RASI',)"
+    }
+  ],
+  "counts": {
+    "m01/train/1": 6,
+    "m01/val/1": 2,
+    "m01/test/1": 1,
+    "m01/train/0": 6,
+    "m01/val/0": 2,
+    "m01/test/0": 1
+  },
+  "repaired_clips": 3,
+  "mapping": [
+    [
+      "LASI",
+      "RASI"
+    ],
+    [
+      "RASI"
+    ],
+    [
+      "RKNE"
+    ],
+    [
+      "RANK"
+    ],
+    [
+      "LASI"
+    ],
+    [
+      "LKNE"
+    ],
+    [
+      "LANK"
+    ],
+    [
+      "T10"
+    ],
+    [
+      "C7",
+      "STRN"
+    ],
+    [
+      "C7"
+    ],
+    [
+      "LFHD",
+      "RFHD",
+      "LBHD",
+      "RBHD"
+    ],
+    [
+      "LSHO"
+    ],
+    [
+      "LELB"
+    ],
+    [
+      "LWRA",
+      "LWRB"
+    ],
+    [
+      "RSHO"
+    ],
+    [
+      "RELB"
+    ],
+    [
+      "RWRA",
+      "RWRB"
+    ]
+  ],
+  "version": 2,
+  "source_fps": 100,
+  "output_fps": 30,
+  "sampling_method": "timestamp_linear_interpolation"
+}
