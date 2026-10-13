@@ -14,6 +14,8 @@ def first_sequence(value) -> torch.Tensor | None:
         return None
     if isinstance(value, list):
         value = value[0]
+    if value is None:
+        return None
     tensor = torch.as_tensor(value, dtype=torch.float32)
     if tensor.ndim == 4:
         tensor = tensor[0]

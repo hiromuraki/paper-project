@@ -131,14 +131,20 @@ class SkeletonDataset(Dataset):
 
         if self.x2d is None and self.x3d is None:
             raise ValueError("At least one of x2d or x3d must be provided.")
+        for name, sequences in (("x2d", self.x2d), ("x3d", self.x3d)):
+            if sequences is not None and len(sequences) != len(self.y):
+                raise ValueError(f"{name} length must match y; repack misaligned data.")
+        for i in range(len(self.y)):
+            if all(s is None or s[i] is None for s in (self.x2d, self.x3d)):
+                raise ValueError(f"Sample {i} has neither modality.")
 
     @staticmethod
     def _coerce_sequences(value):
         if value is None:
             return None
         if torch.is_tensor(value):
-            return value.float()
-        return [torch.as_tensor(item, dtype=torch.float32) for item in value]
+            return value.float().unsqueeze(0) if value.ndim == 3 else value.float()
+        return [None if item is None else torch.as_tensor(item, dtype=torch.float32) for item in value]
 
     def __len__(self) -> int:
         return int(self.y.shape[0])
@@ -156,6 +162,9 @@ class SkeletonDataset(Dataset):
                 raise ValueError(f"Expected [N, T, J, D] or [T, J, D], got {tuple(x.shape)}")
         else:
             seq = x[idx]
+
+        if seq is None:
+            return None
 
         seq = seq.unsqueeze(0)  # [1, T, J, D]
         seq = normalize_skeleton(seq)
